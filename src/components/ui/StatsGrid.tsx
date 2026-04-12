@@ -77,7 +77,7 @@ export function StatsGrid() {
             />
           </div>
           <p className="font-display text-lg font-bold" style={{ color }}>
-            {fmt((stats as Record<string, unknown>)[key])}
+            {fmt((stats as any)[key])}
           </p>
           <p className="font-display text-white/30 mt-0.5 tracking-wider uppercase"
             style={{ fontSize: '9px' }}>
