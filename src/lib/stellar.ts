@@ -36,13 +36,18 @@ export function formatTimeAgo(isoString: string): string {
 }
 
 /**
- * Fetch live server stats from the /health endpoint.
- * Uses a relative path so Vite proxy handles it in dev,
- * and VITE_SERVER_URL handles it in production.
+ * Fetch live server stats from the /api/health endpoint.
+ * Uses the same SERVER_URL logic as the search functionality.
  */
-export async function fetchServerStats(serverUrl = '') {
+export async function fetchServerStats() {
   try {
-    const res = await fetch(`${serverUrl}/health`)
+    const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
+      typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
+        ? `${window.location.origin}/api`
+        : 'http://localhost:3001'
+    )
+    
+    const res = await fetch(`${SERVER_URL}/health`)
     if (!res.ok) return null
     return await res.json()
   } catch {

@@ -32,7 +32,13 @@ export function GroqAssistant() {
     setLoading(true)
 
     try {
-      const res = await fetch('/ai/chat', {
+      const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
+        typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
+          ? `${window.location.origin}/api`
+          : 'http://localhost:3001'
+      )
+      
+      const res = await fetch(`${SERVER_URL}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
