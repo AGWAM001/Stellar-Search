@@ -1,20 +1,13 @@
 {
-  "functions": {
-    "server/index.ts": {
-      "runtime": "@vercel/node"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/server/index.ts"
-    },
-    {
-      "source": "/((?!api/.*).*)",
-      "destination": "/index.html"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "server/index.ts": {
+      "runtime": "@vercel/node@3.0.7"
+    }
   }
 }
