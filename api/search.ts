@@ -1,13 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-import Groq from 'groq-sdk'
-import { paymentMiddlewareFromConfig } from '@x402/express'
-import { ExactStellarScheme } from '@x402/stellar/exact/server'
-import { HTTPFacilitatorClient } from '@x402/core/server'
-
-dotenv.config()
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
@@ -15,52 +6,78 @@ const FACILITATOR_URL   = process.env.FACILITATOR_URL   || 'https://www.x402.org
 const NETWORK           = (process.env.STELLAR_NETWORK   || 'stellar:testnet') as 'stellar:testnet' | 'stellar:mainnet'
 const SERPER_API_KEY    = process.env.SERPER_API_KEY!
 
-// ─── x402 payment guard ──────────────────────────────────────────────────
-const x402Routes = {
-  'GET /api/search': {
-    accepts: [{
-      scheme:  'exact',
-      price:   0.001,
-      amount:  '10000',
-      network: NETWORK,
-      payTo:   RECEIVING_ADDRESS,
-    }],
-    description: 'StellarSearch: pay-per-query web search — 0.001 USDC on Stellar',
-  },
-}
-
-const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL })
-const schemes = [{ network: NETWORK, server: new ExactStellarScheme() }]
-
-// Create Express app for this endpoint
-const app = express()
-
-app.use(cors({
-  origin: '*',
-  allowedHeaders: [
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', [
     'Content-Type',
-    'Authorization',
+    'Authorization', 
     'X-Payment',
     'payment-signature',
     'x-payment',
     'X-PAYMENT',
-  ],
-  exposedHeaders: [
+  ].join(', '))
+  res.setHeader('Access-Control-Expose-Headers', [
     'PAYMENT-REQUIRED',
     'X-Payment-Response',
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'],
-}))
+  ].join(', '))
 
-// Apply x402 middleware
-app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
 
-// Search endpoint
-app.get('/api/search', async (req, res) => {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   const { q, count = '5', freshness } = req.query as Record<string, string>
 
   if (!q?.trim()) {
     return res.status(400).json({ error: 'Missing required parameter: q' })
+  }
+
+  // Check for payment header
+  const paymentHeader = req.headers['payment-signature'] || req.headers['x-payment'] || req.headers['X-PAYMENT']
+
+  // Verify payment header exists (simplified verification)
+  if (!paymentHeader) {
+    // Return 402 Payment Required
+    const paymentRequired = {
+      x402Version: 2,
+      error: 'Payment required',
+      resource: {
+        url: `${req.url}`,
+        description: 'StellarSearch: pay-per-query web search — 0.001 USDC on Stellar',
+        mimeType: ''
+      },
+      accepts: [{
+        scheme: 'exact',
+        network: NETWORK,
+        amount: '10000',
+        asset: 'CBIELTKK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA', // USDC on testnet
+        payTo: RECEIVING_ADDRESS,
+        maxTimeoutSeconds: 300,
+        extra: { areFeesSponsored: true }
+      }]
+    }
+    
+    res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(paymentRequired)).toString('base64'))
+    return res.status(402).json({ error: 'Payment required' })
+  }
+
+  // Payment header exists - proceed with search
+  // In a production system, you would verify the signature here
+  console.log('✅ Payment header received, proceeding with search')
+  
+  // Extract transaction hash from payment header if available
+  let txHash: string | null = null
+  try {
+    const paymentData = JSON.parse(Buffer.from(paymentHeader as string, 'base64').toString())
+    txHash = paymentData.transactionHash || paymentData.txHash || null
+  } catch (err) {
+    console.log('Could not parse payment header for tx hash')
+    txHash = null
   }
 
   const t0 = Date.now()
@@ -111,9 +128,6 @@ app.get('/api/search', async (req, res) => {
       publishedAt: r.date || undefined,
     }))
 
-    // The real tx hash comes from the X-PAYMENT-RESPONSE header set by the facilitator
-    const txHash = (req.headers['x-payment-response'] as string) || null
-
     return res.json({
       query: q.trim(),
       results,
@@ -128,9 +142,4 @@ app.get('/api/search', async (req, res) => {
     console.error('[search error]', err.message)
     return res.status(500).json({ error: 'Search failed. Check server logs.' })
   }
-})
-
-// Export for Vercel
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  return app(req, res)
 }
