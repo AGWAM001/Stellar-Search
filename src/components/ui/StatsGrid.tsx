@@ -9,6 +9,7 @@ interface ServerStats {
   avgLatencyMs: number
   uptime: string
   status: 'online' | 'offline'
+  [key: string]: any // Add index signature
 }
 
 const CARDS = [
@@ -77,7 +78,7 @@ export function StatsGrid() {
             />
           </div>
           <p className="font-display text-lg font-bold" style={{ color }}>
-            {fmt((stats as any)[key])}
+            {fmt(stats[key])}
           </p>
           <p className="font-display text-white/30 mt-0.5 tracking-wider uppercase"
             style={{ fontSize: '9px' }}>
