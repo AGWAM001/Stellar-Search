@@ -55,7 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         scheme: 'exact',
         network: NETWORK,
         amount: '10000',
-        asset: 'CBIELTKK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA', // USDC on testnet
         payTo: RECEIVING_ADDRESS,
         maxTimeoutSeconds: 300,
         extra: { areFeesSponsored: true }
