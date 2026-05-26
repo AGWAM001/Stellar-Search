@@ -154,6 +154,34 @@ app.get('/search', async (req: Request, res: Response) => {
     // The real tx hash comes from the X-PAYMENT-RESPONSE header set by the facilitator
     const txHash = (req.headers['x-payment-response'] as string) || null
 
+    // ── Optional AI suggestions via Groq ──────────────────────────────────
+    let suggestions: string[] = []
+    if (req.query.suggestions === '1' && results.length > 0) {
+      try {
+        const topSnippets = results.slice(0, 3).map((r: any) => r.description).join(' | ')
+        const suggCompletion = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a search assistant. Given a query and top result snippets, return exactly 3 related search queries the user might want to explore next. Output only a JSON array of 3 strings, no explanation.',
+            },
+            {
+              role: 'user',
+              content: `Query: "${q.trim()}"\nTop results: ${topSnippets}`,
+            },
+          ],
+          max_tokens: 120,
+          temperature: 0.7,
+        })
+        const raw = suggCompletion.choices[0]?.message?.content || '[]'
+        const match = raw.match(/\[[\s\S]*\]/)
+        if (match) suggestions = JSON.parse(match[0]).slice(0, 3)
+      } catch (err: any) {
+        console.warn('[suggestions] Groq error:', err.message)
+      }
+    }
+
     return res.json({
       query: q.trim(),
       results,
@@ -163,6 +191,7 @@ app.get('/search', async (req: Request, res: Response) => {
       currency: 'USDC',
       txHash,
       latencyMs,
+      suggestions,
     })
   } catch (err: any) {
     console.error('[search error]', err.message)

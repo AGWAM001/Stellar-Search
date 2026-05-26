@@ -42,20 +42,21 @@ export interface SearchSession {
   status: 'idle' | 'searching' | 'complete' | 'error'
   error?: string
   durationMs?: number
+  suggestions: string[]
 }
 
 export function useSearch(walletAddress: string | null = null) {
   const [session, setSession] = useState<SearchSession>({
-    query: '', results: [], txHash: null, paidAmount: null, status: 'idle',
+    query: '', results: [], txHash: null, paidAmount: null, status: 'idle', suggestions: [],
   })
 
   const search = useCallback(async (query: string, count = 5) => {
     if (!query.trim()) return
 
-    setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching' })
+    setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching', suggestions: [] })
 
     const t0     = Date.now()
-    const params = new URLSearchParams({ q: query, count: String(count) })
+    const params = new URLSearchParams({ q: query, count: String(count), suggestions: '1' })
 
     try {
       if (!walletAddress) throw new Error('Connect your Freighter wallet first.')
@@ -121,7 +122,7 @@ export function useSearch(walletAddress: string | null = null) {
         const data = await firstRes.json()
         return setSession({
           query, results: data.results ?? [], txHash: null,
-          paidAmount: null, status: 'complete', durationMs: Date.now() - t0,
+          paidAmount: null, status: 'complete', durationMs: Date.now() - t0, suggestions: data.suggestions ?? [],
         })
       }
 
@@ -162,6 +163,7 @@ export function useSearch(walletAddress: string | null = null) {
         paidAmount:  data.paidAmount ?? null,
         status:      'complete',
         durationMs:  Date.now() - t0,
+        suggestions: data.suggestions ?? [],
       })
 
     } catch (err: any) {
@@ -175,7 +177,7 @@ export function useSearch(walletAddress: string | null = null) {
   }, [walletAddress])
 
   const reset = useCallback(() => {
-    setSession({ query: '', results: [], txHash: null, paidAmount: null, status: 'idle' })
+    setSession({ query: '', results: [], txHash: null, paidAmount: null, status: 'idle', suggestions: [] })
   }, [])
 
   return { session, search, reset }

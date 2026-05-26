@@ -123,6 +123,12 @@ export function SearchPage({ wallet, onConnectWallet }: Props) {
               </motion.div>
             )}
 
+            {session.status === 'complete' && session.suggestions.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <SearchSuggestions onSelect={handleSearch} aiSuggestions={session.suggestions} />
+              </motion.div>
+            )}
+
             {(session.status === 'complete' || session.status === 'error') && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center pt-2">
                 <button onClick={reset} className="font-display text-xs text-white/25 hover:text-neon-cyan transition-colors tracking-widest">
