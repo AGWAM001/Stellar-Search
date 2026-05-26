@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
+import { Sparkles } from 'lucide-react'
 
-const SUGGESTIONS = [
+const STATIC_SUGGESTIONS = [
   'x402 payment protocol Stellar',
   'Soroban smart contracts tutorial',
   'AI agent autonomous payments 2025',
@@ -11,9 +12,14 @@ const SUGGESTIONS = [
 
 interface Props {
   onSelect: (query: string) => void
+  /** AI-generated suggestions shown after a search completes */
+  aiSuggestions?: string[]
 }
 
-export function SearchSuggestions({ onSelect }: Props) {
+export function SearchSuggestions({ onSelect, aiSuggestions }: Props) {
+  const isAi = aiSuggestions && aiSuggestions.length > 0
+  const items = isAi ? aiSuggestions : STATIC_SUGGESTIONS
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -21,26 +27,32 @@ export function SearchSuggestions({ onSelect }: Props) {
       exit={{ opacity: 0 }}
       className="space-y-3"
     >
-      <p className="font-display text-xs text-white/25 tracking-widest">TRY THESE</p>
+      <div className="flex items-center gap-1.5">
+        {isAi && <Sparkles className="w-3 h-3 text-neon-amber/60" />}
+        <p className="font-display text-xs text-white/25 tracking-widest">
+          {isAi ? 'YOU MIGHT ALSO SEARCH FOR' : 'TRY THESE'}
+        </p>
+      </div>
+
       <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((q, i) => (
+        {items.map((q, i) => (
           <motion.button
             key={q}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
+            transition={{ delay: i * 0.06 }}
             onClick={() => onSelect(q)}
             className="px-3 py-1.5 rounded-lg text-xs font-display tracking-wide transition-all text-white/40 hover:text-neon-cyan/80"
             style={{ border: '1px solid rgba(255,255,255,0.08)' }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLButtonElement
-              el.style.borderColor = 'rgba(0,245,255,0.25)'
-              el.style.background = 'rgba(0,245,255,0.04)'
+              el.style.borderColor = isAi ? 'rgba(255,176,0,0.3)' : 'rgba(0,245,255,0.25)'
+              el.style.background   = isAi ? 'rgba(255,176,0,0.05)' : 'rgba(0,245,255,0.04)'
             }}
             onMouseLeave={e => {
               const el = e.currentTarget as HTMLButtonElement
               el.style.borderColor = 'rgba(255,255,255,0.08)'
-              el.style.background = 'transparent'
+              el.style.background  = 'transparent'
             }}
           >
             {q}

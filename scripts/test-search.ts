@@ -107,6 +107,53 @@ async function runSearch() {
     console.log('✗ Groq AI unavailable (check GROQ_API_KEY)')
   }
 
+  // 4. Test AI suggestions — opt-in via ?suggestions=1
+  console.log('\n── AI suggestions test ──')
+
+  // 4a. With ?suggestions=1 — should return 3 suggestions
+  const t1 = Date.now()
+  const suggParams = new URLSearchParams({ q: query, count: String(count), suggestions: '1' })
+  const suggRes = await fetch(`${SERVER}/search?${suggParams}`)
+  const suggMs = Date.now() - t1
+
+  if (suggRes.status === 402) {
+    console.log('⚡ Got 402 (payment required) — suggestions test skipped in unauthenticated mode')
+  } else if (!suggRes.ok) {
+    console.error('✗ Suggestions request failed:', suggRes.status)
+  } else {
+    const suggData = await suggRes.json()
+    const suggestions: string[] = suggData.suggestions ?? []
+
+    if (!Array.isArray(suggestions)) {
+      console.error('✗ suggestions field is not an array')
+      process.exit(1)
+    }
+    if (suggestions.length !== 3) {
+      console.error(`✗ Expected 3 suggestions, got ${suggestions.length}`)
+      process.exit(1)
+    }
+    if (suggMs > 500) {
+      console.warn(`⚠  Suggestions added ${suggMs - ms}ms — exceeds 500ms budget (total: ${suggMs}ms)`)
+    }
+
+    console.log(`\n✓ Got ${suggestions.length} AI suggestions (${suggMs}ms total):`)
+    suggestions.forEach((s, i) => console.log(`   ${i + 1}. ${s}`))
+  }
+
+  // 4b. Without ?suggestions=1 — should return empty array
+  const noSuggParams = new URLSearchParams({ q: query, count: '1' })
+  const noSuggRes = await fetch(`${SERVER}/search?${noSuggParams}`)
+
+  if (noSuggRes.status !== 402 && noSuggRes.ok) {
+    const noSuggData = await noSuggRes.json()
+    const noSuggestions: string[] = noSuggData.suggestions ?? []
+    if (noSuggestions.length !== 0) {
+      console.error(`✗ Expected 0 suggestions without ?suggestions=1, got ${noSuggestions.length}`)
+      process.exit(1)
+    }
+    console.log('✓ No suggestions returned when ?suggestions=1 is omitted')
+  }
+
   console.log('\n✅ All tests passed!\n')
 }
 
