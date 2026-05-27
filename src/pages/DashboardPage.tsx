@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
-import { ExternalLink, Activity, BarChart2, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ExternalLink, Activity, BarChart2, RefreshCw, History, Search } from 'lucide-react'
+import { IS_MAINNET, STELLAR_NETWORK, AMOUNT_USDC, STELLAR_EXPERT_URL, truncateHash, formatTimeAgo, explorerTxUrl, explorerAccountUrl } from '../lib/stellar'
 import type { StellarTransaction } from '../hooks/useFreighterWallet'
-import { explorerTxUrl, explorerAccountUrl, truncateHash, formatTimeAgo } from '../lib/stellar'
+import type { SearchReceipt } from '../hooks/useSearch'
 
 interface Props {
   transactions: StellarTransaction[]
@@ -13,6 +15,21 @@ interface Props {
 }
 
 export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance, xlmBalance, onRefresh }: Props) {
+  const [receipts, setReceipts] = useState<SearchReceipt[]>([])
+
+  useEffect(() => {
+    const raw = localStorage.getItem('stellarsearch_receipts')
+    if (raw) {
+      try {
+        setReceipts(JSON.parse(raw))
+      } catch (e) {
+        console.error('Failed to parse receipts:', e)
+      }
+    }
+  }, [])
+
+  const networkLabel = IS_MAINNET ? 'STELLAR MAINNET' : 'STELLAR TESTNET'
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
@@ -24,8 +41,8 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
-            <span className="font-display text-xs text-neon-green/60">STELLAR TESTNET</span>
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${IS_MAINNET ? 'bg-neon-amber' : 'bg-neon-green'}`} />
+            <span className={`font-display text-xs tracking-wider ${IS_MAINNET ? 'text-neon-amber/60' : 'text-neon-green/60'}`}>{networkLabel}</span>
           </div>
           <button
             onClick={onRefresh}
@@ -68,7 +85,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
               <p className="font-display text-xs text-white/30 mb-1" style={{ fontSize: '10px' }}>USDC BALANCE</p>
               <p className="font-display text-2xl text-neon-amber">{usdcBalance}</p>
               <p className="font-display text-white/25 mt-1" style={{ fontSize: '9px' }}>
-                {Math.floor(parseFloat(usdcBalance) / 0.001).toLocaleString()} queries remaining
+                {Math.floor(parseFloat(usdcBalance) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries remaining
               </p>
             </div>
             <div className="py-3 px-4 rounded-xl text-center"
@@ -105,7 +122,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
             <span className="font-display text-white/15" style={{ fontSize: '10px' }}>· FROM STELLAR HORIZON</span>
           </div>
           <a
-            href="https://stellar.expert/explorer/testnet"
+            href={STELLAR_EXPERT_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 font-display text-xs text-white/20 hover:text-neon-cyan transition-colors"
@@ -164,11 +181,74 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         </div>
       </motion.div>
 
+      {/* Search Audit Log */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="rounded-2xl overflow-hidden"
+        style={{ background: 'rgba(6,13,20,0.7)', border: '1px solid rgba(0,245,255,0.1)' }}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-neon-cyan/40" />
+            <span className="font-display text-xs text-white/30 tracking-widest">SEARCH AUDIT LOG</span>
+            <span className="font-display text-white/15" style={{ fontSize: '10px' }}>· PERSISTED LOCALLY</span>
+          </div>
+          <div className="font-display text-[10px] text-white/20 uppercase tracking-wider">
+            {receipts.length} RECEIPTS
+          </div>
+        </div>
+
+        <div className="divide-y divide-white/4">
+          {receipts.length === 0 ? (
+            <div className="text-center py-10">
+              <Search className="w-8 h-8 text-white/10 mx-auto mb-3" />
+              <p className="font-display text-xs text-white/20 tracking-widest">NO SEARCH RECEIPTS YET</p>
+              <p className="text-white/25 text-sm mt-2">Perform a search to see your payment history</p>
+            </div>
+          ) : (
+            receipts.map((receipt, i) => (
+              <motion.div
+                key={receipt.txHash}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.03 }}
+                className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/2 transition-colors"
+              >
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${receipt.network === 'stellar:mainnet' ? 'bg-neon-amber' : 'bg-neon-cyan'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white/70 font-medium truncate">"{receipt.query}"</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <a
+                      href={explorerTxUrl(receipt.txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-white/25 hover:text-neon-cyan transition-colors flex items-center gap-1"
+                      style={{ fontSize: '10px' }}
+                    >
+                      {truncateHash(receipt.txHash, 8)} <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                    <span className="text-white/20" style={{ fontSize: '10px' }}>{formatTimeAgo(receipt.timestamp)}</span>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-display text-sm text-neon-amber/80">{receipt.amount} USDC</p>
+                  <p className="font-display text-white/15 mt-0.5 uppercase" style={{ fontSize: '9px' }}>
+                    {receipt.network.split(':')[1]}
+                  </p>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </motion.div>
+
       {/* Network info */}
       <div className="grid sm:grid-cols-3 gap-3">
         {[
-          { label: 'Network',          value: 'Stellar Testnet',  sub: 'stellar:testnet', color: '#00f5ff' },
-          { label: 'Price per query',  value: '0.001 USDC',       sub: '≈ $0.001 USD',    color: '#ffb800' },
+          { label: 'Network',          value: IS_MAINNET ? 'Stellar Mainnet' : 'Stellar Testnet',  sub: STELLAR_NETWORK, color: IS_MAINNET ? '#ffb800' : '#00f5ff' },
+          { label: 'Price per query',  value: `${AMOUNT_USDC} USDC`,       sub: `≈ $${AMOUNT_USDC} USD`,    color: '#ffb800' },
           { label: 'Settlement',       value: '~5 seconds',       sub: 'Stellar finality', color: '#39ff14' },
         ].map(({ label, value, sub, color }) => (
           <motion.div

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { ExternalLink, GitBranch, Globe, Shield, Zap, Code2, Server } from 'lucide-react'
+import { IS_MAINNET, STELLAR_NETWORK, AMOUNT_USDC, STELLAR_EXPERT_URL, HORIZON_URL } from '../lib/stellar'
 
-const STEPS = [
+const getSteps = () => [
   {
     num: '01', icon: Globe, color: '#00f5ff',
     title: 'Agent hits /search endpoint',
@@ -12,7 +13,7 @@ const STEPS = [
     num: '02', icon: Zap, color: '#ffb800',
     title: 'Server returns HTTP 402',
     desc:  'The @x402/express middleware responds with 402 Payment Required and a payment specification.',
-    code:  'HTTP 402 · X-Payment-Required: {"amount":"0.001","currency":"USDC","network":"stellar:testnet"}',
+    code:  `HTTP 402 · X-Payment-Required: {"amount":"10000","currency":"USDC","network":"${STELLAR_NETWORK}"}`,
   },
   {
     num: '03', icon: Shield, color: '#7dd3fc',
@@ -23,23 +24,27 @@ const STEPS = [
   {
     num: '04', icon: Server, color: '#39ff14',
     title: 'Settle on Stellar + get results',
-    desc:  'OpenZeppelin facilitator verifies the signature, settles 0.001 USDC on-chain, and the server returns search results.',
+    desc:  `OpenZeppelin facilitator verifies the signature, settles ${AMOUNT_USDC} USDC on-chain, and the server returns search results.`,
     code:  'GET /search + X-Payment: <sig> → 200 OK + results',
   },
 ]
 
-const STACK = [
+const getStack = () => [
   { label: 'Payment protocol', value: 'x402 (@x402/express + @x402/stellar)',              href: 'https://x402.org' },
-  { label: 'Blockchain',       value: 'Stellar Testnet',                                   href: 'https://developers.stellar.org' },
+  { label: 'Blockchain',       value: IS_MAINNET ? 'Stellar Mainnet' : 'Stellar Testnet',    href: 'https://developers.stellar.org' },
   { label: 'Smart contracts',  value: 'Soroban auth entry signing',                        href: 'https://developers.stellar.org/docs/smart-contracts' },
   { label: 'Facilitator',      value: 'OpenZeppelin x402 (channels.openzeppelin.com)',     href: 'https://docs.openzeppelin.com/relayer/1.4.x/guides/stellar-x402-facilitator-guide' },
   { label: 'Wallet',           value: 'Freighter (@stellar/freighter-api)',                href: 'https://freighter.app' },
-  { label: 'Balances / tx',    value: 'Stellar Horizon REST API (live)',                   href: 'https://horizon-testnet.stellar.org' },
+  { label: 'Balances / tx',    value: 'Stellar Horizon REST API (live)',                   href: HORIZON_URL },
   { label: 'Search backend',   value: 'Serper.dev API',                                   href: 'https://serper.dev' },
   { label: 'AI assistant',     value: 'Groq (groq-sdk) · Llama 3.3 70B',                  href: 'https://console.groq.com' },
 ]
 
 export function DocsPage() {
+  const STEPS = getSteps()
+  const STACK = getStack()
+  const networkLabel = IS_MAINNET ? 'Mainnet' : 'Testnet'
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-16">
 
@@ -49,13 +54,13 @@ export function DocsPage() {
         <h1 className="font-display text-3xl sm:text-4xl text-white">HOW IT WORKS</h1>
         <p className="text-white/45 text-lg max-w-2xl leading-relaxed">
           StellarSearch is a pay-per-query search API for autonomous AI agents. It uses the real x402 protocol
-          on Stellar — no mock data, no fake payments. Every search costs 0.001 USDC settled on-chain.
+          on Stellar — no mock data, no fake payments. Every search costs {AMOUNT_USDC} USDC settled on-chain.
         </p>
         <div className="flex flex-wrap gap-3 pt-1">
           {[
             { label: 'x402 Docs',        href: 'https://developers.stellar.org/docs/build/agentic-payments/x402' },
             { label: 'GitHub Repo',      href: 'https://github.com/stellar/x402-stellar' },
-            { label: 'Testnet Explorer', href: 'https://stellar.expert/explorer/testnet' },
+            { label: `${networkLabel} Explorer`, href: STELLAR_EXPERT_URL },
           ].map(({ label, href }) => (
             <a
               key={label}

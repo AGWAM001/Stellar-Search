@@ -116,6 +116,7 @@ GROQ_API_KEY=gsk_your_groq_key_here
 # Required for x402 payment flow
 STELLAR_RECEIVING_ADDRESS=GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 STELLAR_NETWORK=stellar:testnet
+VITE_STELLAR_NETWORK=stellar:testnet
 FACILITATOR_URL=https://www.x402.org/facilitator
 
 # Server

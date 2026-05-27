@@ -1,11 +1,13 @@
+import { IS_MAINNET, AMOUNT_USDC } from '../../lib/stellar'
+
 interface Props {
   walletConnected: boolean
 }
 
-const TICKER_ITEMS = [
-  ['NETWORK',    'STELLAR TESTNET'],
+const getTickerItems = () => [
+  ['NETWORK',    IS_MAINNET ? 'STELLAR MAINNET' : 'STELLAR TESTNET'],
   ['PROTOCOL',   'x402'],
-  ['PRICE',      '0.001 USDC / QUERY'],
+  ['PRICE',      `${AMOUNT_USDC} USDC / QUERY`],
   ['SETTLEMENT', '~5 SECONDS'],
   ['SEARCH',     'SERPER.DEV'],
   ['AI',         'GROQ LLAMA 3'],
@@ -14,7 +16,7 @@ const TICKER_ITEMS = [
 
 export function LiveTicker({ walletConnected }: Props) {
   const items = [
-    ...TICKER_ITEMS,
+    ...getTickerItems(),
     ['STATUS', walletConnected ? 'WALLET CONNECTED' : 'NOT CONNECTED'],
   ]
 

@@ -1,19 +1,23 @@
 import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Zap } from 'lucide-react'
+import { Search, Zap, AlertTriangle } from 'lucide-react'
+import { IS_MAINNET, EXPECTED_WALLET_NETWORK, AMOUNT_USDC } from '../../lib/stellar'
 
 interface Props {
   onSearch: (query: string) => void
   isSearching: boolean
   walletConnected: boolean
   usdcBalance: string
+  walletNetwork: string
   defaultQuery?: string
 }
 
 export function SearchBar({
-  onSearch, isSearching, walletConnected, usdcBalance, defaultQuery = '',
+  onSearch, isSearching, walletConnected, usdcBalance, walletNetwork, defaultQuery = '',
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const isWrongNetwork = walletConnected && walletNetwork !== EXPECTED_WALLET_NETWORK
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -21,49 +25,65 @@ export function SearchBar({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (isWrongNetwork) return
     const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
     if (q) onSearch(q)
   }
 
   return (
     <form onSubmit={handleSubmit} className="relative">
+      {isWrongNetwork && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute -top-12 left-0 right-0 py-2 px-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400"
+        >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <p className="text-xs font-display tracking-wide">
+            NETWORK MISMATCH: Switch Freighter to {EXPECTED_WALLET_NETWORK} to search
+          </p>
+        </motion.div>
+      )}
+
       <div className="relative group">
         {/* Glow ring on focus */}
         <div
-          className="absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm"
-          style={{ background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' }}
+          className={`absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm ${
+            isWrongNetwork ? 'bg-red-500/20' : ''
+          }`}
+          style={!isWrongNetwork ? { background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' } : {}}
         />
 
         <div
           className="relative flex items-center gap-3 px-5 py-4 rounded-2xl"
           style={{
             background: 'rgba(6,13,20,0.85)',
-            border: '1px solid rgba(0,245,255,0.15)',
+            border: isWrongNetwork ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(0,245,255,0.15)',
             backdropFilter: 'blur(16px)',
           }}
         >
-          <Search className="w-5 h-5 flex-shrink-0" style={{ color: 'rgba(0,245,255,0.5)' }} />
+          <Search className="w-5 h-5 flex-shrink-0" style={{ color: isWrongNetwork ? 'rgba(239,68,68,0.5)' : 'rgba(0,245,255,0.5)' }} />
 
           <input
             ref={inputRef}
             name="q"
             type="text"
             defaultValue={defaultQuery}
-            placeholder="Search anything — pay per query, not per month..."
-            disabled={isSearching}
+            placeholder={isWrongNetwork ? 'Switch network to search...' : "Search anything — pay per query, not per month..."}
+            disabled={isSearching || isWrongNetwork}
             className="flex-1 bg-transparent text-white placeholder:text-white/20 text-sm outline-none disabled:opacity-50"
-            style={{ caretColor: '#00f5ff' }}
+            style={{ caretColor: isWrongNetwork ? '#ef4444' : '#00f5ff' }}
           />
 
           <motion.button
             type="submit"
-            disabled={isSearching}
+            disabled={isSearching || isWrongNetwork}
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-display text-xs tracking-wider transition-all disabled:opacity-40"
             style={{
-              background: isSearching ? 'transparent' : 'rgba(0,245,255,0.12)',
+              background: isSearching || isWrongNetwork ? 'transparent' : 'rgba(0,245,255,0.12)',
               border: '1px solid',
-              borderColor: isSearching ? 'rgba(255,255,255,0.1)' : 'rgba(0,245,255,0.4)',
-              color: isSearching ? 'rgba(255,255,255,0.3)' : '#00f5ff',
+              borderColor: isSearching || isWrongNetwork ? 'rgba(255,255,255,0.1)' : 'rgba(0,245,255,0.4)',
+              color: isSearching || isWrongNetwork ? 'rgba(255,255,255,0.3)' : '#00f5ff',
             }}
             whileTap={{ scale: 0.96 }}
           >
@@ -74,7 +94,7 @@ export function SearchBar({
                 transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
               />
             ) : (
-              <><Zap className="w-3.5 h-3.5" /> 0.001 USDC</>
+              <><Zap className="w-3.5 h-3.5" /> {AMOUNT_USDC} USDC</>
             )}
           </motion.button>
         </div>
@@ -84,11 +104,11 @@ export function SearchBar({
       <div className="flex items-center justify-between mt-2 px-1">
         <p className="font-display text-xs text-white/20">
           {walletConnected
-            ? `Balance: ${usdcBalance} USDC · ~${Math.floor(parseFloat(usdcBalance) / 0.001).toLocaleString()} queries left`
+            ? `Balance: ${usdcBalance} USDC · ~${Math.floor(parseFloat(usdcBalance) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries left`
             : 'Connect Freighter wallet to search'}
         </p>
-        <p className="font-display text-xs text-white/20">
-          Serper.dev · x402 · Stellar Testnet
+        <p className="font-display text-xs text-white/20 uppercase tracking-widest">
+          Serper.dev · x402 · Stellar {IS_MAINNET ? 'Mainnet' : 'Testnet'}
         </p>
       </div>
     </form>
