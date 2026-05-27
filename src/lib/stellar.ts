@@ -2,9 +2,9 @@
  * stellar.ts — Real Stellar Horizon helpers (no mock data)
  */
 
-export const HORIZON_TESTNET = 'https://horizon-testnet.stellar.org'
-export const STELLAR_EXPERT_TESTNET = 'https://stellar.expert/explorer/testnet'
-export const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+import { STELLAR_EXPERT_URL } from './constants'
+
+export * from './constants'
 
 export function truncateAddress(address: string, chars = 6): string {
   if (!address) return ''
@@ -17,11 +17,11 @@ export function truncateHash(hash: string, chars = 8): string {
 }
 
 export function explorerTxUrl(hash: string): string {
-  return `${STELLAR_EXPERT_TESTNET}/tx/${hash}`
+  return `${STELLAR_EXPERT_URL}/tx/${hash}`
 }
 
 export function explorerAccountUrl(address: string): string {
-  return `${STELLAR_EXPERT_TESTNET}/account/${address}`
+  return `${STELLAR_EXPERT_URL}/account/${address}`
 }
 
 export function formatTimeAgo(isoString: string): string {

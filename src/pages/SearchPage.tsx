@@ -9,6 +9,7 @@ import {
 } from '../components'
 import { useSearch } from '../hooks/useSearch'
 import type { WalletState } from '../hooks/useFreighterWallet'
+import { AMOUNT_USDC } from '../lib/stellar'
 
 interface Props {
   wallet: WalletState
@@ -65,7 +66,7 @@ export function SearchPage({ wallet, onConnectWallet }: Props) {
 
             <p className="text-white/45 text-lg max-w-md mx-auto leading-relaxed">
               Real web search for AI agents.{' '}
-              <span className="text-neon-cyan font-medium">0.001 USDC</span> per query settled on Stellar via x402.
+              <span className="text-neon-cyan font-medium">{AMOUNT_USDC} USDC</span> per query settled on Stellar via x402.
               Powered by <span className="text-neon-amber font-medium">Serper.dev</span> +{' '}
               <span className="text-neon-green font-medium">Groq AI</span>.
             </p>
@@ -91,6 +92,7 @@ export function SearchPage({ wallet, onConnectWallet }: Props) {
         isSearching={isSearching}
         walletConnected={wallet.connected}
         usdcBalance={wallet.usdcBalance}
+        walletNetwork={wallet.network}
         defaultQuery={session.query}
       />
 

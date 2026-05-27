@@ -1,19 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { 
+  STELLAR_NETWORK, 
+  USDC_CONTRACT, 
+  AMOUNT_STROOPS,
+  AMOUNT_USDC
+} from '../src/lib/constants'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
-const NETWORK           = (process.env.STELLAR_NETWORK || 'stellar:testnet') as 'stellar:testnet' | 'stellar:mainnet'
+const NETWORK           = STELLAR_NETWORK as 'stellar:testnet' | 'stellar:mainnet'
 const SERPER_API_KEY    = process.env.SERPER_API_KEY!
-
-// USDC Soroban contract address on Stellar
-// ✅ CORRECT format for x402 Stellar: C... Soroban contract address
-// ❌ WRONG format that caused the error: "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
-const USDC_CONTRACT_TESTNET = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'
-const USDC_CONTRACT_MAINNET = 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7EJJUST'
-const USDC_CONTRACT         = NETWORK === 'stellar:mainnet' ? USDC_CONTRACT_MAINNET : USDC_CONTRACT_TESTNET
-
-// 0.001 USDC in stroops (1 USDC = 10,000,000 stroops)
-const AMOUNT_STROOPS = '10000'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 
@@ -143,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       results,
       count:      results.length,
       network:    NETWORK,
-      paidAmount: '0.001',
+      paidAmount: AMOUNT_USDC,
       currency:   'USDC',
       txHash,
       latencyMs,

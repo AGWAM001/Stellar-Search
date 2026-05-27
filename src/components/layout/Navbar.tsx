@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
-import { Search, BookOpen, BarChart2, ExternalLink, Zap, Github } from 'lucide-react'
+import { Search, BookOpen, BarChart2, ExternalLink, Zap, Github, Globe } from 'lucide-react'
 import { WalletPanel } from '../wallet/WalletPanel'
 import type { WalletState, StellarTransaction } from '../../hooks/useFreighterWallet'
+import { IS_MAINNET } from '../../lib/stellar'
 
 type Page = 'search' | 'docs' | 'dashboard'
 
@@ -49,6 +50,18 @@ export function Navbar({
             STELLAR<span className="text-neon-cyan">SEARCH</span>
           </span>
         </button>
+
+        {/* Network Badge */}
+        <div 
+          className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-display tracking-widest ${
+            IS_MAINNET 
+              ? 'bg-neon-amber/10 border-neon-amber/30 text-neon-amber' 
+              : 'bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan'
+          }`}
+        >
+          <Globe className="w-2.5 h-2.5" />
+          {IS_MAINNET ? 'MAINNET' : 'TESTNET'}
+        </div>
 
         {/* Nav links */}
         <nav className="flex items-center gap-1 flex-1">

@@ -1,7 +1,7 @@
 /**
  * useFreighterWallet.ts
  * Real Freighter wallet integration using @stellar/freighter-api
- * Fetches live balances from Stellar Horizon testnet
+ * Fetches live balances from Stellar Horizon
  */
 
 import { useState, useCallback, useEffect } from 'react'
@@ -12,9 +12,7 @@ import {
   getNetwork,
 } from '@stellar/freighter-api'
 import { Horizon } from '@stellar/stellar-sdk'
-
-const HORIZON_URL = 'https://horizon-testnet.stellar.org'
-const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+import { HORIZON_URL, USDC_ISSUER } from '../lib/stellar'
 
 export interface WalletState {
   publicKey: string | null
@@ -67,7 +65,7 @@ export function useFreighterWallet() {
         } else if (
           balance.asset_type === 'credit_alphanum4' &&
           (balance as any).asset_code === 'USDC' &&
-          (balance as any).asset_issuer === USDC_ISSUER_TESTNET
+          (balance as any).asset_issuer === USDC_ISSUER
         ) {
           usdc = parseFloat(balance.balance).toFixed(6)
         }

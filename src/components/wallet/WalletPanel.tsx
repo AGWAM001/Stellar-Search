@@ -8,6 +8,7 @@ import type { WalletState, StellarTransaction } from '../../hooks/useFreighterWa
 import {
   truncateAddress, truncateHash,
   explorerAccountUrl, explorerTxUrl, formatTimeAgo,
+  IS_MAINNET, EXPECTED_WALLET_NETWORK, AMOUNT_USDC
 } from '../../lib/stellar'
 
 interface Props {
@@ -25,6 +26,8 @@ export function WalletPanel({
 }: Props) {
   const [open, setOpen]     = useState(false)
   const [copied, setCopied] = useState(false)
+
+  const isWrongNetwork = wallet.connected && wallet.network !== EXPECTED_WALLET_NETWORK
 
   const copy = () => {
     if (!wallet.publicKey) return
@@ -62,14 +65,20 @@ export function WalletPanel({
     <div className="relative">
       <motion.button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-neon-cyan/30 bg-neon-cyan/5 font-display text-xs tracking-wider text-neon-cyan"
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-display text-xs tracking-wider transition-all ${
+          isWrongNetwork 
+            ? 'border-red-500/50 bg-red-500/5 text-red-400' 
+            : 'border-neon-cyan/30 bg-neon-cyan/5 text-neon-cyan'
+        }`}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+        <div className={`w-2 h-2 rounded-full animate-pulse ${isWrongNetwork ? 'bg-red-500' : 'bg-neon-green'}`} />
         <span>{truncateAddress(wallet.publicKey!)}</span>
         <span className="text-white/30">·</span>
-        <span className="text-neon-amber">{wallet.usdcBalance} USDC</span>
+        <span className={isWrongNetwork ? 'text-red-300' : 'text-neon-amber'}>
+          {isWrongNetwork ? 'WRONG NETWORK' : `${wallet.usdcBalance} USDC`}
+        </span>
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </motion.button>
 
@@ -92,8 +101,10 @@ export function WalletPanel({
               <div className="flex items-center justify-between mb-2">
                 <span className="font-display text-xs text-white/30 tracking-widest">FREIGHTER WALLET</span>
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
-                  <span className="font-display text-xs text-neon-green/70 uppercase">{wallet.network}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isWrongNetwork ? 'bg-red-500' : 'bg-neon-green'}`} />
+                  <span className={`font-display text-[10px] tracking-widest uppercase ${isWrongNetwork ? 'text-red-400' : 'text-neon-green/70'}`}>
+                    {wallet.network} {isWrongNetwork && '(EXPECTED ' + EXPECTED_WALLET_NETWORK + ')'}
+                  </span>
                 </div>
               </div>
 
@@ -121,7 +132,7 @@ export function WalletPanel({
                   <p className="font-display text-white/30" style={{ fontSize: '9px' }}>USDC BALANCE</p>
                   <p className="font-display text-lg text-neon-amber mt-0.5">{wallet.usdcBalance}</p>
                   <p className="font-display text-white/25 mt-0.5" style={{ fontSize: '9px' }}>
-                    ~{Math.floor(parseFloat(wallet.usdcBalance) / 0.001).toLocaleString()} queries
+                    ~{Math.floor(parseFloat(wallet.usdcBalance) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries
                   </p>
                 </div>
                 <div className="py-2 px-3 rounded-lg bg-white/5">
@@ -201,14 +212,25 @@ export function WalletPanel({
 
             {/* Actions */}
             <div className="p-3 pt-0 flex gap-2">
-              <a
-                href="https://laboratory.stellar.org/#account-creator?network=test"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 py-2 rounded-lg border border-neon-cyan/20 text-center font-display text-xs text-neon-cyan/70 hover:bg-neon-cyan/5 transition-colors"
-              >
-                Fund Testnet ↗
-              </a>
+              {IS_MAINNET ? (
+                <a
+                  href="https://www.circle.com/en/usdc"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2 rounded-lg border border-neon-amber/20 text-center font-display text-[10px] text-neon-amber/70 hover:bg-neon-amber/5 transition-colors uppercase tracking-widest"
+                >
+                  Buy USDC ↗
+                </a>
+              ) : (
+                <a
+                  href="https://laboratory.stellar.org/#account-creator?network=test"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2 rounded-lg border border-neon-cyan/20 text-center font-display text-[10px] text-neon-cyan/70 hover:bg-neon-cyan/5 transition-colors uppercase tracking-widest"
+                >
+                  Fund Testnet ↗
+                </a>
+              )}
               <button
                 onClick={() => { onDisconnect(); setOpen(false) }}
                 className="flex items-center gap-1.5 py-2 px-3 rounded-lg border border-white/10 font-display text-xs text-white/30 hover:text-red-400 hover:border-red-500/30 transition-all"

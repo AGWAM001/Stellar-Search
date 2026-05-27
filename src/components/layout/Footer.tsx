@@ -1,9 +1,10 @@
 import { Zap } from 'lucide-react'
+import { STELLAR_EXPERT_URL, IS_MAINNET } from '../../lib/stellar'
 
 const LINKS = [
   { label: 'x402.org',         href: 'https://x402.org' },
   { label: 'Stellar Docs',     href: 'https://developers.stellar.org' },
-  { label: 'Testnet Explorer', href: 'https://stellar.expert/explorer/testnet' },
+  { label: `${IS_MAINNET ? 'Mainnet' : 'Testnet'} Explorer`, href: STELLAR_EXPERT_URL },
   { label: 'Freighter',        href: 'https://freighter.app' },
 ]
 

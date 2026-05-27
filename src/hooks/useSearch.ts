@@ -16,13 +16,26 @@ import { ExactStellarScheme }                  from '@x402/stellar/exact/client'
 import { signAuthEntry, getNetworkDetails }    from '@stellar/freighter-api'
 import { Networks }                            from '@stellar/stellar-sdk'
 import { Buffer }                              from 'buffer'
+import { HORIZON_URL, IS_MAINNET, EXPECTED_WALLET_NETWORK } from '../lib/stellar'
 
 const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
   typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
     ? `${window.location.origin}/api`
     : 'http://localhost:3001'
 )
-const SOROBAN_RPC_URL = 'https://soroban-testnet.stellar.org'
+
+// Soroban RPC URLs
+const SOROBAN_RPC_TESTNET = 'https://soroban-testnet.stellar.org'
+const SOROBAN_RPC_MAINNET = 'https://soroban-rpc.mainnet.stellar.org' // Or another public RPC
+const SOROBAN_RPC_URL = IS_MAINNET ? SOROBAN_RPC_MAINNET : SOROBAN_RPC_TESTNET
+
+export interface SearchReceipt {
+  txHash: string
+  query: string
+  amount: string
+  timestamp: string
+  network: string
+}
 
 export interface SearchResult {
   id: string
@@ -63,17 +76,16 @@ export function useSearch(walletAddress: string | null = null) {
 
       console.log('🔍 Starting search with wallet:', walletAddress)
 
-      // Step 1 — verify Freighter is on Testnet
+      // Step 1 — verify Freighter is on correct network
       const net = await getNetworkDetails()
       if (net.error)              throw new Error(net.error.message)
-      if (net.network !== 'TESTNET') throw new Error(`Switch Freighter to Testnet. Currently: ${net.network}`)
+      if (net.network !== EXPECTED_WALLET_NETWORK) {
+        throw new Error(`Switch Freighter to ${EXPECTED_WALLET_NETWORK}. Currently: ${net.network}`)
+      }
       console.log('✅ Network verified:', net.network)
 
       // Step 2 — build the signer
-      // Freighter.signAuthEntry() returns a RAW BUFFER (64 bytes of ed25519 signature).
-      // ExactStellarScheme.signAuthEntry must return { signedAuthEntry: string }
-      // where signedAuthEntry is that buffer encoded as BASE64 — not .toString() which
-      // gives "[object Buffer]" (9 chars) and causes "expected 64 got 9".
+      const passphrase = IS_MAINNET ? Networks.PUBLIC : Networks.TESTNET
       const signer = {
         address: walletAddress,
         signAuthEntry: async (
@@ -83,7 +95,7 @@ export function useSearch(walletAddress: string | null = null) {
           console.log('🔑 Calling Freighter signAuthEntry...')
 
           const result = await signAuthEntry(xdr, {
-            networkPassphrase: opts?.networkPassphrase ?? Networks.TESTNET,
+            networkPassphrase: opts?.networkPassphrase ?? passphrase,
           })
 
           if (result.error) throw new Error(result.error.message)
@@ -91,11 +103,9 @@ export function useSearch(walletAddress: string | null = null) {
 
           console.log('✅ Freighter signed. Type:', typeof result.signedAuthEntry)
 
-          // Freighter returns a Buffer. Convert it correctly to base64.
-          // Using Buffer.from() handles both Buffer and Uint8Array safely.
           const raw = result.signedAuthEntry
           const signedAuthEntry = typeof raw === 'string'
-            ? raw  // already a base64 string in newer Freighter versions
+            ? raw
             : Buffer.from(raw as unknown as Uint8Array).toString('base64')
 
           console.log('✅ signedAuthEntry base64 length:', signedAuthEntry.length)
@@ -165,6 +175,29 @@ export function useSearch(walletAddress: string | null = null) {
         durationMs:  Date.now() - t0,
         suggestions: data.suggestions ?? [],
       })
+
+      // Persist receipt
+      if (data.txHash) {
+        try {
+          const receiptsRaw = localStorage.getItem('stellarsearch_receipts')
+          const receipts: SearchReceipt[] = receiptsRaw ? JSON.parse(receiptsRaw) : []
+          
+          const newReceipt: SearchReceipt = {
+            txHash: data.txHash,
+            query: query.trim(),
+            amount: data.paidAmount || '0.001',
+            timestamp: new Date().toISOString(),
+            network: data.network || 'stellar:testnet',
+          }
+
+          // Keep only last 50 receipts
+          const updated = [newReceipt, ...receipts].slice(0, 50)
+          localStorage.setItem('stellarsearch_receipts', JSON.stringify(updated))
+          console.log('📄 Receipt persisted')
+        } catch (e) {
+          console.warn('Failed to persist receipt:', e)
+        }
+      }
 
     } catch (err: any) {
       console.error('❌ Search failed:', err)

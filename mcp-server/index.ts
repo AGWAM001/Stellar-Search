@@ -15,13 +15,18 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
+import { 
+  HORIZON_URL, 
+  USDC_ISSUER, 
+  STELLAR_NETWORK,
+  STELLAR_EXPERT_URL,
+  AMOUNT_USDC
+} from '../src/lib/constants'
 
 dotenv.config()
 
 const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
 const GROQ_API_KEY = process.env.GROQ_API_KEY!
-const HORIZON_URL = 'https://horizon-testnet.stellar.org'
-const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 
 const groq = new Groq({ apiKey: GROQ_API_KEY })
 
@@ -35,7 +40,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: 'web_search',
-      description: `Search the web via StellarSearch. Automatically pays 0.001 USDC on Stellar (x402 protocol).
+      description: `Search the web via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
 The server handles the full payment flow: HTTP 402 → sign Soroban auth → settle → return results.
 Use for current events, documentation, research, or anything needing up-to-date web information.`,
       inputSchema: {
@@ -69,6 +74,14 @@ Use for current events, documentation, research, or anything needing up-to-date 
           address: { type: 'string', description: 'Stellar public key (G...)' },
         },
         required: ['address'],
+      },
+    },
+    {
+      name: 'get_search_stats',
+      description: 'Get live statistics from the StellarSearch server (total queries, USDC settled, uptime, latencies).',
+      inputSchema: {
+        type: 'object',
+        properties: {},
       },
     },
   ],
@@ -145,7 +158,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     try {
       const res = await fetch(`${HORIZON_URL}/accounts/${address}`)
-      if (res.status === 404) throw new Error('Account not found on Stellar testnet')
+      if (res.status === 404) throw new Error(`Account not found on Stellar ${STELLAR_NETWORK.split(':')[1]}`)
       if (!res.ok) throw new Error(`Horizon returned ${res.status}`)
 
       const account = await res.json()
@@ -158,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
-      const queries = Math.floor(parseFloat(usdc) / 0.001)
+      const queries = Math.floor(parseFloat(usdc) / parseFloat(AMOUNT_USDC))
       return {
         content: [{
           type: 'text',
@@ -166,13 +179,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             `💳 Stellar Account: ${address}`,
             `   USDC: ${usdc} (~${queries.toLocaleString()} searches remaining)`,
             `   XLM:  ${xlm}`,
-            `   Network: testnet`,
-            `   Explorer: https://stellar.expert/explorer/testnet/account/${address}`,
+            `   Network: ${STELLAR_NETWORK.split(':')[1]}`,
+            `   Explorer: ${STELLAR_EXPERT_URL}/account/${address}`,
           ].join('\n'),
         }],
       }
     } catch (err: any) {
       return { content: [{ type: 'text', text: `Balance check failed: ${err.message}` }], isError: true }
+    }
+  }
+
+  // ── get_search_stats ──────────────────────────────────────────────────
+  if (name === 'get_search_stats') {
+    try {
+      const res = await fetch(`${SERVER_URL}/health`)
+      if (!res.ok) throw new Error(`Server health check returned ${res.status}`)
+
+      const stats = await res.json()
+      
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `📊 StellarSearch Server Stats`,
+            `   Status:           ${stats.status.toUpperCase()}`,
+            `   Network:          ${stats.network}`,
+            `   Uptime:           ${stats.uptime}`,
+            `   Total Queries:    ${stats.totalQueries.toLocaleString()}`,
+            `   USDC Settled:     ${stats.totalUsdcSettled} USDC`,
+            `   Avg Latency:      ${stats.avgLatencyMs}ms`,
+            `   Price per Query:  ${stats.pricePerQuery}`,
+            `   Facilitator:      ${stats.facilitator}`,
+            `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
+          ].join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `Failed to fetch server stats: ${err.message}` }], isError: true }
     }
   }
 

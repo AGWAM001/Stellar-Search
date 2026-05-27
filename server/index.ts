@@ -20,6 +20,12 @@ import Groq from 'groq-sdk'
 import { paymentMiddlewareFromConfig } from '@x402/express'
 import { ExactStellarScheme } from '@x402/stellar/exact/server'
 import { HTTPFacilitatorClient } from '@x402/core/server'
+import { 
+  STELLAR_NETWORK, 
+  HORIZON_URL, 
+  AMOUNT_USDC, 
+  AMOUNT_STROOPS 
+} from '../src/lib/constants'
 
 dotenv.config()
 
@@ -37,7 +43,7 @@ const stats = {
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
 const FACILITATOR_URL   = process.env.FACILITATOR_URL   || 'https://www.x402.org/facilitator'
-const NETWORK           = (process.env.STELLAR_NETWORK   || 'stellar:testnet') as 'stellar:testnet' | 'stellar:mainnet'
+const NETWORK           = STELLAR_NETWORK as 'stellar:testnet' | 'stellar:mainnet'
 const SERPER_API_KEY    = process.env.SERPER_API_KEY!
 const GROQ_API_KEY      = process.env.GROQ_API_KEY!
 
@@ -75,12 +81,12 @@ const x402Routes = {
   'GET /search': {
     accepts: [{
       scheme:  'exact',
-      price:   0.001,
-      amount:  '10000',
+      price:   parseFloat(AMOUNT_USDC),
+      amount:  AMOUNT_STROOPS,
       network: NETWORK,
       payTo:   RECEIVING_ADDRESS,
     }],
-    description: 'StellarSearch: pay-per-query web search — 0.001 USDC on Stellar',
+    description: `StellarSearch: pay-per-query web search — ${AMOUNT_USDC} USDC on Stellar`,
   },
 }
 
@@ -187,7 +193,7 @@ app.get('/search', async (req: Request, res: Response) => {
       results,
       count: results.length,
       network: NETWORK,
-      paidAmount: '0.001',
+      paidAmount: AMOUNT_USDC,
       currency: 'USDC',
       txHash,
       latencyMs,
