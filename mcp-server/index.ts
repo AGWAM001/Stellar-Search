@@ -54,6 +54,20 @@ Use for current events, documentation, research, or anything needing up-to-date 
       },
     },
     {
+      name: 'image_search',
+      description: `Search the web for images via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
+Returns image URLs, titles, and source domains via the Serper.dev images API.
+Use for visual references, photos, diagrams, or anything where you need image results.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Image search query' },
+          count: { type: 'number', description: 'Results count (1–10, default 5)', default: 5 },
+        },
+        required: ['query'],
+      },
+    },
+    {
       name: 'ai_summarize',
       description: 'Use Groq (Llama 3) to summarise or analyse text. Free — no payment required.',
       inputSchema: {
@@ -127,6 +141,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     } catch (err: any) {
       return { content: [{ type: 'text', text: `Search failed: ${err.message}` }], isError: true }
+    }
+  }
+
+  // ── image_search ──────────────────────────────────────────────────────
+  if (name === 'image_search') {
+    const { query, count = 5 } = args as { query: string; count?: number }
+
+    try {
+      const safeCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 10)
+      const params = new URLSearchParams({ q: query, count: String(safeCount) })
+
+      const res = await fetch(`${SERVER_URL}/images?${params}`)
+
+      if (!res.ok) {
+        const e: any = await res.json().catch(() => ({}))
+        throw new Error(e.error || `HTTP ${res.status}`)
+      }
+
+      const data: any = await res.json()
+      const formatted = data.results
+        .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   Image: ${r.imageUrl}\n   Source: ${r.sourceUrl} (${r.source})`)
+        .join('\n\n')
+
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `🖼️  Image results for: "${query}"`,
+            `💰 Paid: ${data.paidAmount} ${data.currency} on ${data.network}`,
+            `⚡ Latency: ${data.latencyMs}ms`,
+            `📊 ${data.count} results\n`,
+            formatted,
+          ].join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `Image search failed: ${err.message}` }], isError: true }
     }
   }
 

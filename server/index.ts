@@ -77,16 +77,22 @@ app.use(express.json())
 // ─── x402 payment guard on /search ───────────────────────────────────────
 // paymentMiddlewareFromConfig is the recommended API per official Stellar docs.
 // It uses the Coinbase public facilitator (no API key needed for testnet).
+const x402Accepts = [{
+  scheme:  'exact',
+  price:   parseFloat(AMOUNT_USDC),
+  amount:  AMOUNT_STROOPS,
+  network: NETWORK,
+  payTo:   RECEIVING_ADDRESS,
+}]
+
 const x402Routes = {
   'GET /search': {
-    accepts: [{
-      scheme:  'exact',
-      price:   parseFloat(AMOUNT_USDC),
-      amount:  AMOUNT_STROOPS,
-      network: NETWORK,
-      payTo:   RECEIVING_ADDRESS,
-    }],
+    accepts: x402Accepts,
     description: `StellarSearch: pay-per-query web search — ${AMOUNT_USDC} USDC on Stellar`,
+  },
+  'GET /images': {
+    accepts: x402Accepts,
+    description: `StellarSearch: pay-per-query image search — ${AMOUNT_USDC} USDC on Stellar`,
   },
 }
 
@@ -98,27 +104,34 @@ app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
 
 const MAX_QUERY_LENGTH = 256
 
+// Validate and sanitize the user-supplied `q` parameter. Returns either the
+// cleaned string or a 400 response body to send back. Centralised so /search
+// and /images share the same rules.
+function validateQuery(
+  q: unknown,
+): { ok: true; cleanQ: string } | { ok: false; error: string } {
+  if (typeof q !== 'string' || !q.trim()) {
+    return { ok: false, error: 'Missing required parameter: q' }
+  }
+  if (q.length > MAX_QUERY_LENGTH) {
+    return { ok: false, error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters.` }
+  }
+  // Strip null bytes and ASCII control characters (C0 + DEL) to prevent
+  // log injection and odd Serper behavior.
+  const cleanQ = q.replace(/[\x00-\x1F\x7F]/g, '').trim()
+  if (!cleanQ) {
+    return { ok: false, error: 'Query contains no valid characters.' }
+  }
+  return { ok: true, cleanQ }
+}
+
 // ─── GET /search ──────────────────────────────────────────────────────────
 app.get('/search', async (req: Request, res: Response) => {
   const { q, count = '5', freshness } = req.query as Record<string, string>
 
-  if (typeof q !== 'string' || !q.trim()) {
-    return res.status(400).json({ error: 'Missing required parameter: q' })
-  }
-
-  if (q.length > MAX_QUERY_LENGTH) {
-    return res.status(400).json({
-      error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters.`,
-    })
-  }
-
-  // Strip null bytes and ASCII control characters (C0 + DEL) to prevent
-  // log injection and odd Serper behavior.
-  const cleanQ = q.replace(/[\x00-\x1F\x7F]/g, '').trim()
-
-  if (!cleanQ) {
-    return res.status(400).json({ error: 'Query contains no valid characters.' })
-  }
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
 
   const t0 = Date.now()
 
@@ -221,6 +234,72 @@ app.get('/search', async (req: Request, res: Response) => {
   }
 })
 
+// ─── GET /images ──────────────────────────────────────────────────────────
+app.get('/images', async (req: Request, res: Response) => {
+  const { q, count = '10' } = req.query as Record<string, string>
+
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
+
+  const t0 = Date.now()
+
+  try {
+    const serperRes = await fetch('https://google.serper.dev/images', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        q: cleanQ,
+        num: Math.min(parseInt(count) || 10, 10),
+      }),
+    })
+
+    if (!serperRes.ok) {
+      const err = await serperRes.text()
+      console.error('[serper images]', serperRes.status, err)
+      return res.status(502).json({ error: `Serper.dev API error: ${serperRes.status}` })
+    }
+
+    const data = await serperRes.json()
+    const latencyMs = Date.now() - t0
+
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    stats.latencies.push(latencyMs)
+    if (stats.latencies.length > 200) stats.latencies.shift()
+
+    const results = (data.images || []).map((r: any, i: number) => ({
+      id: String(i + 1),
+      title: r.title || 'No title',
+      imageUrl: r.imageUrl,
+      thumbnailUrl: r.thumbnailUrl || r.imageUrl,
+      sourceUrl: r.link,
+      source: (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
+      width: r.imageWidth,
+      height: r.imageHeight,
+    }))
+
+    const txHash = (req.headers['x-payment-response'] as string) || null
+
+    return res.json({
+      query: cleanQ,
+      results,
+      count: results.length,
+      network: NETWORK,
+      paidAmount: AMOUNT_USDC,
+      currency: 'USDC',
+      txHash,
+      latencyMs,
+    })
+  } catch (err: any) {
+    console.error('[images error]', err.message)
+    return res.status(500).json({ error: 'Image search failed. Check server logs.' })
+  }
+})
+
 // ─── POST /ai/chat ────────────────────────────────────────────────────────
 app.post('/ai/chat', async (req: Request, res: Response) => {
   const { messages } = req.body as {
@@ -287,6 +366,7 @@ app.get('/', (_req: Request, res: Response) => {
     description: 'Pay-per-query web search for AI agents via x402 on Stellar',
     endpoints: {
       'GET /search?q=<query>': '0.001 USDC via x402',
+      'GET /images?q=<query>': '0.001 USDC via x402 — image results',
       'POST /ai/chat':         'Groq AI — free',
       'GET /health':           'Live server stats',
     },
