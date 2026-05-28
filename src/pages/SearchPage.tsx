@@ -6,6 +6,7 @@ import {
   SearchSuggestions,
   PaymentFlowVisualizer,
   StatsGrid,
+  ZeroBalanceBanner,
 } from '../components'
 import { useSearch } from '../hooks/useSearch'
 import type { WalletState } from '../hooks/useFreighterWallet'
@@ -86,6 +87,12 @@ export function SearchPage({ wallet, onConnectWallet }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ZeroBalanceBanner
+        connected={wallet.connected}
+        publicKey={wallet.publicKey}
+        usdcBalance={wallet.usdcBalance}
+      />
 
       <SearchBar
         onSearch={handleSearch}
