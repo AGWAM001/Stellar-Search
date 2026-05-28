@@ -77,16 +77,26 @@ app.use(express.json())
 // ─── x402 payment guard on /search ───────────────────────────────────────
 // paymentMiddlewareFromConfig is the recommended API per official Stellar docs.
 // It uses the Coinbase public facilitator (no API key needed for testnet).
+const x402Accepts = [{
+  scheme:  'exact',
+  price:   parseFloat(AMOUNT_USDC),
+  amount:  AMOUNT_STROOPS,
+  network: NETWORK,
+  payTo:   RECEIVING_ADDRESS,
+}]
+
 const x402Routes = {
   'GET /search': {
-    accepts: [{
-      scheme:  'exact',
-      price:   parseFloat(AMOUNT_USDC),
-      amount:  AMOUNT_STROOPS,
-      network: NETWORK,
-      payTo:   RECEIVING_ADDRESS,
-    }],
+    accepts: x402Accepts,
     description: `StellarSearch: pay-per-query web search — ${AMOUNT_USDC} USDC on Stellar`,
+  },
+  'GET /images': {
+    accepts: x402Accepts,
+    description: `StellarSearch: pay-per-query image search — ${AMOUNT_USDC} USDC on Stellar`,
+  },
+  'GET /news': {
+    accepts: x402Accepts,
+    description: `StellarSearch: pay-per-query news search — ${AMOUNT_USDC} USDC on Stellar`,
   },
 }
 
@@ -96,19 +106,42 @@ const schemes = [{ network: NETWORK, server: new ExactStellarScheme() }]
 // Apply middleware to all routes, not just /search
 app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
 
+const MAX_QUERY_LENGTH = 256
+
+// Validate and sanitize the user-supplied `q` parameter. Returns either the
+// cleaned string or a 400 response body to send back. Centralised so /search
+// and /images share the same rules.
+function validateQuery(
+  q: unknown,
+): { ok: true; cleanQ: string } | { ok: false; error: string } {
+  if (typeof q !== 'string' || !q.trim()) {
+    return { ok: false, error: 'Missing required parameter: q' }
+  }
+  if (q.length > MAX_QUERY_LENGTH) {
+    return { ok: false, error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters.` }
+  }
+  // Strip null bytes and ASCII control characters (C0 + DEL) to prevent
+  // log injection and odd Serper behavior.
+  const cleanQ = q.replace(/[\x00-\x1F\x7F]/g, '').trim()
+  if (!cleanQ) {
+    return { ok: false, error: 'Query contains no valid characters.' }
+  }
+  return { ok: true, cleanQ }
+}
+
 // ─── GET /search ──────────────────────────────────────────────────────────
 app.get('/search', async (req: Request, res: Response) => {
   const { q, count = '5', freshness } = req.query as Record<string, string>
 
-  if (!q?.trim()) {
-    return res.status(400).json({ error: 'Missing required parameter: q' })
-  }
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
 
   const t0 = Date.now()
 
   try {
     const requestBody: any = {
-      q: q.trim(),
+      q: cleanQ,
       num: Math.min(parseInt(count) || 5, 20),
     }
 
@@ -174,7 +207,7 @@ app.get('/search', async (req: Request, res: Response) => {
             },
             {
               role: 'user',
-              content: `Query: "${q.trim()}"\nTop results: ${topSnippets}`,
+              content: `Query: "${cleanQ}"\nTop results: ${topSnippets}`,
             },
           ],
           max_tokens: 120,
@@ -189,7 +222,7 @@ app.get('/search', async (req: Request, res: Response) => {
     }
 
     return res.json({
-      query: q.trim(),
+      query: cleanQ,
       results,
       count: results.length,
       network: NETWORK,
@@ -202,6 +235,150 @@ app.get('/search', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('[search error]', err.message)
     return res.status(500).json({ error: 'Search failed. Check server logs.' })
+  }
+})
+
+// ─── GET /images ──────────────────────────────────────────────────────────
+app.get('/images', async (req: Request, res: Response) => {
+  const { q, count = '10' } = req.query as Record<string, string>
+
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
+
+  const t0 = Date.now()
+
+  try {
+    const serperRes = await fetch('https://google.serper.dev/images', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        q: cleanQ,
+        num: Math.min(parseInt(count) || 10, 10),
+      }),
+    })
+
+    if (!serperRes.ok) {
+      const err = await serperRes.text()
+      console.error('[serper images]', serperRes.status, err)
+      return res.status(502).json({ error: `Serper.dev API error: ${serperRes.status}` })
+    }
+
+    const data = await serperRes.json()
+    const latencyMs = Date.now() - t0
+
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    stats.latencies.push(latencyMs)
+    if (stats.latencies.length > 200) stats.latencies.shift()
+
+    const results = (data.images || []).map((r: any, i: number) => ({
+      id: String(i + 1),
+      title: r.title || 'No title',
+      imageUrl: r.imageUrl,
+      thumbnailUrl: r.thumbnailUrl || r.imageUrl,
+      sourceUrl: r.link,
+      source: (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
+      width: r.imageWidth,
+      height: r.imageHeight,
+    }))
+
+    const txHash = (req.headers['x-payment-response'] as string) || null
+
+    return res.json({
+      query: cleanQ,
+      results,
+      count: results.length,
+      network: NETWORK,
+      paidAmount: AMOUNT_USDC,
+      currency: 'USDC',
+      txHash,
+      latencyMs,
+    })
+  } catch (err: any) {
+    console.error('[images error]', err.message)
+    return res.status(500).json({ error: 'Image search failed. Check server logs.' })
+  }
+})
+
+// ─── GET /news ────────────────────────────────────────────────────────────
+app.get('/news', async (req: Request, res: Response) => {
+  const { q, count = '10', freshness } = req.query as Record<string, string>
+
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
+
+  const t0 = Date.now()
+
+  try {
+    const requestBody: any = {
+      q: cleanQ,
+      num: Math.min(parseInt(count) || 10, 20),
+    }
+
+    if (freshness) {
+      const dateFilters: Record<string, string> = {
+        'pd': 'qdr:d',
+        'pw': 'qdr:w',
+        'pm': 'qdr:m',
+      }
+      if (dateFilters[freshness]) {
+        requestBody.tbs = dateFilters[freshness]
+      }
+    }
+
+    const serperRes = await fetch('https://google.serper.dev/news', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!serperRes.ok) {
+      const err = await serperRes.text()
+      console.error('[serper news]', serperRes.status, err)
+      return res.status(502).json({ error: `Serper.dev API error: ${serperRes.status}` })
+    }
+
+    const data = await serperRes.json()
+    const latencyMs = Date.now() - t0
+
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    stats.latencies.push(latencyMs)
+    if (stats.latencies.length > 200) stats.latencies.shift()
+
+    const results = (data.news || []).map((r: any, i: number) => ({
+      id: String(i + 1),
+      title: r.title || 'No title',
+      url: r.link,
+      snippet: r.snippet || '',
+      source: r.source || (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
+      publishedAt: r.date || undefined,
+      imageUrl: r.imageUrl || undefined,
+    }))
+
+    const txHash = (req.headers['x-payment-response'] as string) || null
+
+    return res.json({
+      query: cleanQ,
+      results,
+      count: results.length,
+      network: NETWORK,
+      paidAmount: AMOUNT_USDC,
+      currency: 'USDC',
+      txHash,
+      latencyMs,
+    })
+  } catch (err: any) {
+    console.error('[news error]', err.message)
+    return res.status(500).json({ error: 'News search failed. Check server logs.' })
   }
 })
 
@@ -271,6 +448,8 @@ app.get('/', (_req: Request, res: Response) => {
     description: 'Pay-per-query web search for AI agents via x402 on Stellar',
     endpoints: {
       'GET /search?q=<query>': '0.001 USDC via x402',
+      'GET /images?q=<query>': '0.001 USDC via x402 — image results',
+      'GET /news?q=<query>':   '0.001 USDC via x402 — news articles',
       'POST /ai/chat':         'Groq AI — free',
       'GET /health':           'Live server stats',
     },
