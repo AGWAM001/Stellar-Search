@@ -8,18 +8,19 @@ import {
   StatsGrid,
   ZeroBalanceBanner,
 } from '../components'
-import { useSearch } from '../hooks/useSearch'
+import type { SearchSession } from '../hooks/useSearch'
 import type { WalletState } from '../hooks/useFreighterWallet'
 import { AMOUNT_USDC } from '../lib/stellar'
 
 interface Props {
   wallet: WalletState
   onConnectWallet: () => void
+  session: SearchSession
+  search: (query: string, count?: number) => Promise<void>
+  reset: () => void
 }
 
-export function SearchPage({ wallet, onConnectWallet }: Props) {
-  const { session, search, reset } = useSearch(wallet.connected ? wallet.publicKey : null)
-
+export function SearchPage({ wallet, onConnectWallet, session, search, reset }: Props) {
   const handleSearch = (query: string) => {
     if (!wallet.connected) { onConnectWallet(); return }
     search(query)

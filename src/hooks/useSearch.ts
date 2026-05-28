@@ -47,12 +47,17 @@ export interface SearchResult {
   publishedAt?: string
 }
 
+// x402 flow steps, per the official x402 quickstart:
+//   1 Request   2 402 Received   3 Sign Auth   4 Retry   5 Facilitate   6 Result
+export type PaymentStep = 1 | 2 | 3 | 4 | 5 | 6
+
 export interface SearchSession {
   query: string
   results: SearchResult[]
   txHash: string | null
   paidAmount: string | null
   status: 'idle' | 'searching' | 'complete' | 'error'
+  step?: PaymentStep
   error?: string
   durationMs?: number
   suggestions: string[]
@@ -66,10 +71,13 @@ export function useSearch(walletAddress: string | null = null) {
   const search = useCallback(async (query: string, count = 5) => {
     if (!query.trim()) return
 
-    setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching', suggestions: [] })
+    setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching', step: 1, suggestions: [] })
 
     const t0     = Date.now()
     const params = new URLSearchParams({ q: query, count: String(count), suggestions: '1' })
+
+    const advance = (step: PaymentStep) =>
+      setSession(prev => ({ ...prev, step }))
 
     try {
       if (!walletAddress) throw new Error('Connect your Freighter wallet first.')
@@ -122,7 +130,8 @@ export function useSearch(walletAddress: string | null = null) {
       const httpClient = new x402HTTPClient(client)
       console.log('✅ x402 client built')
 
-      // Step 4 — initial request, expect 402
+      // Flow step 1 — initial request, expect 402
+      advance(1)
       console.log('🚀 Initial request:', `${SERVER_URL}/search?${params}`)
       const firstRes = await fetch(`${SERVER_URL}/search?${params}`)
       console.log('📡 Status:', firstRes.status)
@@ -132,18 +141,20 @@ export function useSearch(walletAddress: string | null = null) {
         const data = await firstRes.json()
         return setSession({
           query, results: data.results ?? [], txHash: null,
-          paidAmount: null, status: 'complete', durationMs: Date.now() - t0, suggestions: data.suggestions ?? [],
+          paidAmount: null, status: 'complete', step: 6, durationMs: Date.now() - t0, suggestions: data.suggestions ?? [],
         })
       }
 
-      // Step 5 — parse the PAYMENT-REQUIRED header
+      // Flow step 2 — parse the PAYMENT-REQUIRED header
+      advance(2)
       console.log('💰 402 received, parsing payment requirements...')
       const paymentRequired = httpClient.getPaymentRequiredResponse(
         (name) => firstRes.headers.get(name)
       )
       console.log('💰 Payment requirements:', paymentRequired)
 
-      // Step 6 — createPaymentPayload() triggers the Freighter popup
+      // Flow step 3 — createPaymentPayload() triggers the Freighter popup (signs auth entry)
+      advance(3)
       console.log('🔐 Triggering Freighter popup via createPaymentPayload...')
       const paymentPayload = await client.createPaymentPayload(paymentRequired)
       console.log('✅ Freighter approved, payload created')
@@ -151,11 +162,16 @@ export function useSearch(walletAddress: string | null = null) {
       const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload)
       console.log('✅ Payment headers encoded')
 
-      // Step 7 — retry with X-PAYMENT header
+      // Flow step 4 — retry with X-PAYMENT header
+      advance(4)
       console.log('🔄 Retrying with payment...')
-      const paidRes = await fetch(`${SERVER_URL}/search?${params}`, {
+      const paidResPromise = fetch(`${SERVER_URL}/search?${params}`, {
         headers: paymentHeaders,
       })
+
+      // Flow step 5 — facilitator settles on Stellar while the retry is in flight
+      advance(5)
+      const paidRes = await paidResPromise
       console.log('📡 Paid response status:', paidRes.status)
 
       if (!paidRes.ok) {
@@ -166,12 +182,14 @@ export function useSearch(walletAddress: string | null = null) {
       const data = await paidRes.json()
       console.log('✅ Search complete!')
 
+      // Flow step 6 — result received and rendered
       setSession({
         query,
         results:     data.results    ?? [],
         txHash:      data.txHash     ?? null,
         paidAmount:  data.paidAmount ?? null,
         status:      'complete',
+        step:        6,
         durationMs:  Date.now() - t0,
         suggestions: data.suggestions ?? [],
       })
