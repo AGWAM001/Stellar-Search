@@ -96,19 +96,35 @@ const schemes = [{ network: NETWORK, server: new ExactStellarScheme() }]
 // Apply middleware to all routes, not just /search
 app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
 
+const MAX_QUERY_LENGTH = 256
+
 // ─── GET /search ──────────────────────────────────────────────────────────
 app.get('/search', async (req: Request, res: Response) => {
   const { q, count = '5', freshness } = req.query as Record<string, string>
 
-  if (!q?.trim()) {
+  if (typeof q !== 'string' || !q.trim()) {
     return res.status(400).json({ error: 'Missing required parameter: q' })
+  }
+
+  if (q.length > MAX_QUERY_LENGTH) {
+    return res.status(400).json({
+      error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters.`,
+    })
+  }
+
+  // Strip null bytes and ASCII control characters (C0 + DEL) to prevent
+  // log injection and odd Serper behavior.
+  const cleanQ = q.replace(/[\x00-\x1F\x7F]/g, '').trim()
+
+  if (!cleanQ) {
+    return res.status(400).json({ error: 'Query contains no valid characters.' })
   }
 
   const t0 = Date.now()
 
   try {
     const requestBody: any = {
-      q: q.trim(),
+      q: cleanQ,
       num: Math.min(parseInt(count) || 5, 20),
     }
 
@@ -174,7 +190,7 @@ app.get('/search', async (req: Request, res: Response) => {
             },
             {
               role: 'user',
-              content: `Query: "${q.trim()}"\nTop results: ${topSnippets}`,
+              content: `Query: "${cleanQ}"\nTop results: ${topSnippets}`,
             },
           ],
           max_tokens: 120,
@@ -189,7 +205,7 @@ app.get('/search', async (req: Request, res: Response) => {
     }
 
     return res.json({
-      query: q.trim(),
+      query: cleanQ,
       results,
       count: results.length,
       network: NETWORK,
