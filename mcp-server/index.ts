@@ -68,6 +68,21 @@ Use for visual references, photos, diagrams, or anything where you need image re
       },
     },
     {
+      name: 'news_search',
+      description: `Search recent news articles via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
+Returns articles with title, URL, snippet, publication date, and source via the Serper.dev news API.
+Use for breaking stories, current events, and time-sensitive reporting.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'News search query' },
+          count: { type: 'number', description: 'Results count (1–20, default 10)', default: 10 },
+          freshness: { type: 'string', enum: ['pd', 'pw', 'pm'], description: 'Age: pd=day, pw=week, pm=month' },
+        },
+        required: ['query'],
+      },
+    },
+    {
       name: 'ai_summarize',
       description: 'Use Groq (Llama 3) to summarise or analyse text. Free — no payment required.',
       inputSchema: {
@@ -178,6 +193,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     } catch (err: any) {
       return { content: [{ type: 'text', text: `Image search failed: ${err.message}` }], isError: true }
+    }
+  }
+
+  // ── news_search ───────────────────────────────────────────────────────
+  if (name === 'news_search') {
+    const { query, count = 10, freshness } = args as {
+      query: string; count?: number; freshness?: string
+    }
+
+    try {
+      const safeCount = Math.min(Math.max(parseInt(String(count)) || 10, 1), 20)
+      const params = new URLSearchParams({ q: query, count: String(safeCount) })
+      if (freshness) params.set('freshness', freshness)
+
+      const res = await fetch(`${SERVER_URL}/news?${params}`)
+
+      if (!res.ok) {
+        const e: any = await res.json().catch(() => ({}))
+        throw new Error(e.error || `HTTP ${res.status}`)
+      }
+
+      const data: any = await res.json()
+      const formatted = data.results
+        .map((r: any, i: number) => {
+          const date = r.publishedAt ? ` · ${r.publishedAt}` : ''
+          return `${i + 1}. **${r.title}** (${r.source}${date})\n   ${r.url}\n   ${r.snippet}`
+        })
+        .join('\n\n')
+
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `📰 News results for: "${query}"`,
+            `💰 Paid: ${data.paidAmount} ${data.currency} on ${data.network}`,
+            `⚡ Latency: ${data.latencyMs}ms`,
+            `📊 ${data.count} results\n`,
+            formatted,
+          ].join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `News search failed: ${err.message}` }], isError: true }
     }
   }
 

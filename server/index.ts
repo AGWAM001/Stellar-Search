@@ -94,6 +94,10 @@ const x402Routes = {
     accepts: x402Accepts,
     description: `StellarSearch: pay-per-query image search — ${AMOUNT_USDC} USDC on Stellar`,
   },
+  'GET /news': {
+    accepts: x402Accepts,
+    description: `StellarSearch: pay-per-query news search — ${AMOUNT_USDC} USDC on Stellar`,
+  },
 }
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL })
@@ -300,6 +304,84 @@ app.get('/images', async (req: Request, res: Response) => {
   }
 })
 
+// ─── GET /news ────────────────────────────────────────────────────────────
+app.get('/news', async (req: Request, res: Response) => {
+  const { q, count = '10', freshness } = req.query as Record<string, string>
+
+  const v = validateQuery(q)
+  if (!v.ok) return res.status(400).json({ error: v.error })
+  const cleanQ = v.cleanQ
+
+  const t0 = Date.now()
+
+  try {
+    const requestBody: any = {
+      q: cleanQ,
+      num: Math.min(parseInt(count) || 10, 20),
+    }
+
+    if (freshness) {
+      const dateFilters: Record<string, string> = {
+        'pd': 'qdr:d',
+        'pw': 'qdr:w',
+        'pm': 'qdr:m',
+      }
+      if (dateFilters[freshness]) {
+        requestBody.tbs = dateFilters[freshness]
+      }
+    }
+
+    const serperRes = await fetch('https://google.serper.dev/news', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!serperRes.ok) {
+      const err = await serperRes.text()
+      console.error('[serper news]', serperRes.status, err)
+      return res.status(502).json({ error: `Serper.dev API error: ${serperRes.status}` })
+    }
+
+    const data = await serperRes.json()
+    const latencyMs = Date.now() - t0
+
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    stats.latencies.push(latencyMs)
+    if (stats.latencies.length > 200) stats.latencies.shift()
+
+    const results = (data.news || []).map((r: any, i: number) => ({
+      id: String(i + 1),
+      title: r.title || 'No title',
+      url: r.link,
+      snippet: r.snippet || '',
+      source: r.source || (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
+      publishedAt: r.date || undefined,
+      imageUrl: r.imageUrl || undefined,
+    }))
+
+    const txHash = (req.headers['x-payment-response'] as string) || null
+
+    return res.json({
+      query: cleanQ,
+      results,
+      count: results.length,
+      network: NETWORK,
+      paidAmount: AMOUNT_USDC,
+      currency: 'USDC',
+      txHash,
+      latencyMs,
+    })
+  } catch (err: any) {
+    console.error('[news error]', err.message)
+    return res.status(500).json({ error: 'News search failed. Check server logs.' })
+  }
+})
+
 // ─── POST /ai/chat ────────────────────────────────────────────────────────
 app.post('/ai/chat', async (req: Request, res: Response) => {
   const { messages } = req.body as {
@@ -367,6 +449,7 @@ app.get('/', (_req: Request, res: Response) => {
     endpoints: {
       'GET /search?q=<query>': '0.001 USDC via x402',
       'GET /images?q=<query>': '0.001 USDC via x402 — image results',
+      'GET /news?q=<query>':   '0.001 USDC via x402 — news articles',
       'POST /ai/chat':         'Groq AI — free',
       'GET /health':           'Live server stats',
     },
