@@ -3,17 +3,18 @@ import { ExternalLink } from 'lucide-react'
 import type { SearchSession } from '../../hooks/useSearch'
 import { explorerTxUrl, truncateHash } from '../../lib/stellar'
 
+// 6 steps of the x402 flow per the official x402 quickstart:
+//   request → 402 → sign → retry → facilitate → result
 const STEPS = [
-  { icon: '→', label: 'HTTP Request',    sub: 'GET /search',        color: '#00f5ff' },
-  { icon: '⚡', label: '402 Received',   sub: 'Payment Required',   color: '#ffb800' },
-  { icon: '✦', label: 'Sign Auth Entry', sub: 'Soroban + Freighter', color: '#7dd3fc' },
-  { icon: '◈', label: 'Settle on Stellar', sub: '0.001 USDC',       color: '#39ff14' },
+  { icon: '→', label: 'Request',      sub: 'GET /search',         color: '#00f5ff' },
+  { icon: '⚡', label: '402 Received', sub: 'Payment Required',    color: '#ffb800' },
+  { icon: '✦', label: 'Sign',         sub: 'Soroban + Freighter', color: '#7dd3fc' },
+  { icon: '↻', label: 'Retry',        sub: 'X-PAYMENT header',    color: '#c084fc' },
+  { icon: '◈', label: 'Facilitate',   sub: 'Settle on Stellar',   color: '#39ff14' },
+  { icon: '✓', label: 'Result',       sub: 'Search response',     color: '#34d399' },
 ]
 
-// How many steps are "done" for each status
-const STEPS_DONE: Record<string, number> = {
-  idle: 0, searching: 0, complete: 4, error: 0,
-}
+const TOTAL_STEPS = STEPS.length
 
 interface Props {
   session: SearchSession
@@ -22,8 +23,15 @@ interface Props {
 export function PaymentFlowVisualizer({ session }: Props) {
   if (session.status === 'idle') return null
 
-  const done       = STEPS_DONE[session.status] ?? 0
   const isSearching = session.status === 'searching'
+  const isComplete  = session.status === 'complete'
+  const isError     = session.status === 'error'
+
+  // `step` is 1-indexed in SearchSession; convert to 0-indexed active step.
+  // When complete, treat all steps as done. When error, leave the in-flight
+  // step un-done so the user sees where it failed.
+  const activeIdx  = (session.step ?? 1) - 1
+  const doneCount  = isComplete ? TOTAL_STEPS : activeIdx
 
   return (
     <motion.div
@@ -49,32 +57,40 @@ export function PaymentFlowVisualizer({ session }: Props) {
         <div className="absolute top-5 left-5 right-5 h-px bg-white/8 z-0" />
         <div className="relative z-10 flex justify-between">
           {STEPS.map((step, i) => {
-            const isComplete = done > i
-            const isActive   = isSearching && i === 0
+            const stepDone   = doneCount > i
+            const stepActive = isSearching && i === activeIdx
+            const stepFailed = isError && i === activeIdx
 
             return (
               <div key={step.label} className="flex flex-col items-center gap-2 flex-1">
                 <motion.div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm border relative"
                   animate={{
-                    borderColor: isComplete || isActive ? step.color : 'rgba(255,255,255,0.1)',
-                    backgroundColor: isComplete ? `${step.color}20` : isActive ? `${step.color}10` : 'transparent',
-                    boxShadow: isActive ? `0 0 20px ${step.color}50` : 'none',
+                    borderColor: stepFailed ? '#ef4444'
+                      : stepDone || stepActive ? step.color
+                      : 'rgba(255,255,255,0.1)',
+                    backgroundColor: stepDone ? `${step.color}20`
+                      : stepActive ? `${step.color}10`
+                      : stepFailed ? 'rgba(239,68,68,0.1)'
+                      : 'transparent',
+                    boxShadow: stepActive ? `0 0 20px ${step.color}50` : 'none',
                   }}
                 >
-                  {isComplete ? (
+                  {stepDone ? (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       style={{ color: step.color }}
                       className="text-xs font-bold"
                     >✓</motion.span>
+                  ) : stepFailed ? (
+                    <span style={{ color: '#ef4444' }} className="text-xs font-bold">✗</span>
                   ) : (
-                    <span style={{ color: isActive ? step.color : 'rgba(255,255,255,0.25)' }} className="text-xs">
+                    <span style={{ color: stepActive ? step.color : 'rgba(255,255,255,0.25)' }} className="text-xs">
                       {step.icon}
                     </span>
                   )}
-                  {isActive && (
+                  {stepActive && (
                     <motion.div
                       className="absolute inset-0 rounded-full border"
                       style={{ borderColor: step.color }}
@@ -85,7 +101,9 @@ export function PaymentFlowVisualizer({ session }: Props) {
                 </motion.div>
                 <div className="text-center">
                   <p className="font-display text-xs" style={{
-                    color: isComplete || isActive ? step.color : 'rgba(255,255,255,0.25)',
+                    color: stepFailed ? '#ef4444'
+                      : stepDone || stepActive ? step.color
+                      : 'rgba(255,255,255,0.25)',
                     fontSize: '10px',
                   }}>
                     {step.label}
@@ -115,9 +133,9 @@ export function PaymentFlowVisualizer({ session }: Props) {
             />
           )}
           <p className="font-display text-xs text-white/50">
-            {session.status === 'searching' && '→ Calling /search → receiving 402 → signing Soroban auth → settling on Stellar...'}
-            {session.status === 'complete'  && `✓ Payment settled — ${session.results.length} results in ${session.durationMs}ms`}
-            {session.status === 'error'     && `✗ ${session.error}`}
+            {isSearching && `→ Step ${session.step ?? 1}/${TOTAL_STEPS}: ${STEPS[activeIdx]?.label} — ${STEPS[activeIdx]?.sub}...`}
+            {isComplete  && `✓ Payment settled — ${session.results.length} results in ${session.durationMs}ms`}
+            {isError     && `✗ ${session.error}`}
           </p>
         </motion.div>
       </AnimatePresence>

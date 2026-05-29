@@ -1,10 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, X } from 'lucide-react'
+import type { SearchResult } from '../../hooks/useSearch'
 
 interface Message {
-  role: 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant'
   content: string
+}
+
+interface LastSearch {
+  query: string
+  results: SearchResult[]
+}
+
+interface Props {
+  lastSearch?: LastSearch | null
 }
 
 const SYSTEM_INTRO: Message = {
@@ -13,52 +23,153 @@ const SYSTEM_INTRO: Message = {
     "Hi! I'm your AI research assistant powered by Groq (Llama 3). I can help you craft better search queries, summarise results, or explain topics. Each search costs 0.001 USDC on Stellar. What would you like to research?",
 }
 
-export function GroqAssistant() {
+const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
+  typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
+    ? `${window.location.origin}/api`
+    : 'http://localhost:3001'
+)
+
+// Parse an SSE stream from `/ai/chat` and invoke `onDelta` for each token.
+// Stops cleanly on `event: done` or `event: error`.
+async function consumeSSE(
+  body: ReadableStream<Uint8Array>,
+  onDelta: (delta: string) => void,
+): Promise<void> {
+  const reader  = body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let   buffer  = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // SSE events are delimited by a blank line.
+    let blankLine: number
+    while ((blankLine = buffer.indexOf('\n\n')) !== -1) {
+      const rawEvent = buffer.slice(0, blankLine)
+      buffer = buffer.slice(blankLine + 2)
+
+      let event = 'message'
+      let data  = ''
+      for (const line of rawEvent.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+
+      if (event === 'delta') {
+        try {
+          const { content } = JSON.parse(data) as { content?: string }
+          if (content) onDelta(content)
+        } catch { /* malformed chunk; skip */ }
+      } else if (event === 'done') {
+        return
+      } else if (event === 'error') {
+        try {
+          const { error } = JSON.parse(data) as { error?: string }
+          throw new Error(error || 'stream error')
+        } catch (e) {
+          throw e instanceof Error ? e : new Error('stream error')
+        }
+      }
+    }
+  }
+}
+
+// Build a system message that gives Groq context from the user's most recent
+// paid search so follow-up questions can be answered without re-asking.
+function buildSearchContextMessage(s: LastSearch): Message {
+  const top = s.results.slice(0, 3).map((r, i) =>
+    `${i + 1}. ${r.title} — ${r.url}\n   ${r.description}`
+  ).join('\n')
+  return {
+    role: 'system',
+    content:
+      `Context — the user's most recent search:\n` +
+      `Query: "${s.query}"\n` +
+      `Top results:\n${top}\n\n` +
+      `Use this when answering follow-up questions. Do not repeat the list verbatim.`,
+  }
+}
+
+export function GroqAssistant({ lastSearch }: Props = {}) {
   const [open, setOpen]         = useState(false)
   const [messages, setMessages] = useState<Message[]>([SYSTEM_INTRO])
   const [input, setInput]       = useState('')
   const [loading, setLoading]   = useState(false)
   const bottomRef               = useRef<HTMLDivElement>(null)
+  const contextInjectedFor      = useRef<string | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Inject a search-context system message the first time the assistant is
+  // opened after a search completes. Re-inject if the query changes.
+  useEffect(() => {
+    if (!open || !lastSearch || !lastSearch.results.length) return
+    if (contextInjectedFor.current === lastSearch.query) return
+    contextInjectedFor.current = lastSearch.query
+    setMessages(prev => [...prev, buildSearchContextMessage(lastSearch)])
+  }, [open, lastSearch])
+
   const send = async () => {
     if (!input.trim() || loading) return
     const userMsg: Message = { role: 'user', content: input.trim() }
-    setMessages(prev => [...prev, userMsg])
+    const history = [...messages, userMsg]
+    setMessages(history)
     setInput('')
     setLoading(true)
 
+    // Insert a placeholder assistant message we'll stream tokens into.
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+
+    const payload = JSON.stringify({
+      messages: history.map(m => ({ role: m.role, content: m.content })),
+    })
+
     try {
-      const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
-        typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
-          ? `${window.location.origin}/api`
-          : 'http://localhost:3001'
-      )
-      
       const res = await fetch(`${SERVER_URL}/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: payload,
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
+
+      const isSSE = res.headers.get('content-type')?.includes('text/event-stream')
+      if (isSSE && res.body) {
+        await consumeSSE(res.body, delta => {
+          setMessages(prev => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last?.role === 'assistant') {
+              next[next.length - 1] = { ...last, content: last.content + delta }
+            }
+            return next
+          })
+        })
+      } else {
+        // Non-streaming fallback: server returned JSON.
+        const data = await res.json()
+        setMessages(prev => {
+          const next = [...prev]
+          next[next.length - 1] = { role: 'assistant', content: data.content ?? 'No response.' }
+          return next
+        })
+      }
     } catch (err: any) {
-      setMessages(prev => [
-        ...prev,
-        {
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = {
           role: 'assistant',
           content: `⚠️ Could not reach AI server: ${err.message}. Make sure the backend is running with GROQ_API_KEY set.`,
-        },
-      ])
+        }
+        return next
+      })
     } finally {
       setLoading(false)
     }
@@ -117,7 +228,7 @@ export function GroqAssistant() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {messages.map((msg, i) => (
+              {messages.filter(m => m.role !== 'system').map((msg, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 8 }}

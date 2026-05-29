@@ -1,9 +1,9 @@
-import { useState }                            from 'react'
+import { useState, useMemo }                   from 'react'
 import { motion, AnimatePresence }             from 'framer-motion'
 import { AnimatedBackground, Navbar, LiveTicker, Footer } from './components/layout'
 import { GroqAssistant }                       from './components/ai'
 import { SearchPage, DocsPage, DashboardPage } from './pages'
-import { useFreighterWallet }                  from './hooks'
+import { useFreighterWallet, useSearch }       from './hooks'
 
 type Page = 'search' | 'docs' | 'dashboard'
 
@@ -14,6 +14,19 @@ export default function App() {
     wallet, transactions, txLoading,
     connect, disconnect, refresh,
   } = useFreighterWallet()
+
+  // Lifted so the floating GroqAssistant can read the last completed search
+  // and pre-populate context (issue #57).
+  const { session, search, reset } = useSearch(
+    wallet.connected ? wallet.publicKey : null
+  )
+
+  const lastSearch = useMemo(
+    () => session.status === 'complete' && session.results.length
+      ? { query: session.query, results: session.results }
+      : null,
+    [session.status, session.query, session.results],
+  )
 
   return (
     <div className="min-h-screen relative text-white">
@@ -51,6 +64,9 @@ export default function App() {
                 <SearchPage
                   wallet={wallet}
                   onConnectWallet={connect}
+                  session={session}
+                  search={search}
+                  reset={reset}
                 />
               )}
               {page === 'docs' && <DocsPage />}
@@ -73,7 +89,7 @@ export default function App() {
       </div>
 
       {/* Floating Groq AI assistant */}
-      <GroqAssistant />
+      <GroqAssistant lastSearch={lastSearch} />
     </div>
   )
 }

@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion'
-import { ExternalLink, Star, Clock } from 'lucide-react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ExternalLink, Star, Clock, Sparkles } from 'lucide-react'
 import type { SearchResult } from '../../hooks/useSearch'
 
 interface Props {
@@ -7,20 +8,158 @@ interface Props {
   query: string
 }
 
-export function SearchResults({ results }: Props) {
+const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
+  typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
+    ? `${window.location.origin}/api`
+    : 'http://localhost:3001'
+)
+
+export function SearchResults({ results, query }: Props) {
+  const [summary, setSummary]               = useState<string>('')
+  const [summaryError, setSummaryError]     = useState<string | null>(null)
+  const [summarizing, setSummarizing]       = useState(false)
+
   if (!results.length) return null
+
+  const summarize = async () => {
+    if (summarizing) return
+    setSummarizing(true)
+    setSummaryError(null)
+    setSummary('')
+
+    const snippets = results.slice(0, 5).map((r, i) =>
+      `${i + 1}. ${r.title} — ${r.url}\n   ${r.description}`
+    ).join('\n')
+
+    const prompt =
+      `Here are search results for "${query}". ` +
+      `Summarize the key findings in 3 concise bullet points. ` +
+      `Cite source numbers like [1], [2] when relevant.\n\n${snippets}`
+
+    try {
+      const res = await fetch(`${SERVER_URL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+
+      const isSSE = res.headers.get('content-type')?.includes('text/event-stream')
+      if (isSSE && res.body) {
+        const reader  = res.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let   buffer  = ''
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          let blank: number
+          while ((blank = buffer.indexOf('\n\n')) !== -1) {
+            const raw = buffer.slice(0, blank)
+            buffer = buffer.slice(blank + 2)
+            let event = 'message'
+            let data  = ''
+            for (const line of raw.split('\n')) {
+              if (line.startsWith('event:')) event = line.slice(6).trim()
+              else if (line.startsWith('data:')) data += line.slice(5).trim()
+            }
+            if (!data) continue
+            if (event === 'delta') {
+              try {
+                const { content } = JSON.parse(data) as { content?: string }
+                if (content) setSummary(prev => prev + content)
+              } catch { /* skip malformed */ }
+            } else if (event === 'done') {
+              break
+            } else if (event === 'error') {
+              try {
+                const { error } = JSON.parse(data) as { error?: string }
+                throw new Error(error || 'stream error')
+              } catch (e) {
+                throw e instanceof Error ? e : new Error('stream error')
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        setSummary(data.content ?? 'No summary returned.')
+      }
+    } catch (err: any) {
+      setSummaryError(err.message || 'Failed to generate summary.')
+    } finally {
+      setSummarizing(false)
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="font-display text-xs text-white/35 tracking-widest">
           {results.length} RESULTS · SERPER.DEV · PAID VIA x402
         </p>
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-neon-green" />
-          <span className="font-display text-xs text-neon-green/70">LIVE</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={summarize}
+            disabled={summarizing}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-display text-xs tracking-wider text-neon-cyan disabled:opacity-40 hover:bg-neon-cyan/10 transition-colors"
+            style={{ border: '1px solid rgba(0,245,255,0.3)', background: 'rgba(0,245,255,0.06)' }}
+          >
+            <Sparkles className="w-3 h-3" />
+            {summarizing ? 'SUMMARIZING…' : summary ? 'REGENERATE' : 'SUMMARIZE'}
+          </button>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-neon-green" />
+            <span className="font-display text-xs text-neon-green/70">LIVE</span>
+          </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {(summarizing || summary || summaryError) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="rounded-xl p-4 space-y-2"
+            style={{
+              background: 'rgba(0,245,255,0.04)',
+              border: '1px solid rgba(0,245,255,0.18)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-neon-cyan" />
+              <span className="font-display text-xs text-neon-cyan tracking-wider">AI SUMMARY · GROQ</span>
+              {summarizing && (
+                <span className="flex items-center gap-1 ml-auto">
+                  {[0, 1, 2].map(j => (
+                    <motion.div
+                      key={j}
+                      className="w-1 h-1 rounded-full bg-neon-cyan/60"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 0.8, repeat: Infinity, delay: j * 0.15 }}
+                    />
+                  ))}
+                </span>
+              )}
+            </div>
+            {summaryError ? (
+              <p className="text-red-300 text-xs">⚠ {summaryError}</p>
+            ) : (
+              <p className="text-white/70 text-xs leading-relaxed whitespace-pre-wrap">
+                {summary}
+                {summarizing && <span className="text-neon-cyan/60">▌</span>}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {results.map((r, i) => (
         <motion.a
