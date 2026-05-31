@@ -6,6 +6,7 @@ import type { SearchResult } from '../../hooks/useSearch'
 interface Props {
   results: SearchResult[]
   query: string
+  isLoading?: boolean
 }
 
 const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
@@ -14,10 +15,32 @@ const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
     : 'http://localhost:3001'
 )
 
-export function SearchResults({ results, query }: Props) {
+export function SearchResults({ results, query, isLoading }: Props) {
   const [summary, setSummary]               = useState<string>('')
   const [summaryError, setSummaryError]     = useState<string | null>(null)
   const [summarizing, setSummarizing]       = useState(false)
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="animate-pulse rounded-xl p-4 space-y-3" style={{ background: 'rgba(6,13,20,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex gap-2">
+              <div className="w-16 h-4 bg-white/10 rounded-full"></div>
+              <div className="w-12 h-4 bg-white/10 rounded-full"></div>
+            </div>
+            <div className="w-3/4 h-4 bg-white/10 rounded"></div>
+            <div className="w-1/2 h-3 bg-white/5 rounded"></div>
+            <div className="space-y-2 pt-1">
+              <div className="w-full h-3 bg-white/5 rounded"></div>
+              <div className="w-5/6 h-3 bg-white/5 rounded"></div>
+            </div>
+            <div className="mt-3 h-px bg-white/5 rounded-full overflow-hidden"></div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   if (!results.length) return null
 
@@ -177,8 +200,8 @@ export function SearchResults({ results, query }: Props) {
             backdropFilter: 'blur(8px)',
           }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3 flex-col sm:flex-row">
+            <div className="flex-1 min-w-0 w-full">
               {/* Source + score */}
               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                 <span

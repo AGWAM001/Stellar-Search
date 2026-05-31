@@ -55,7 +55,7 @@ export function SearchBar({
         />
 
         <div
-          className="relative flex items-center gap-3 px-5 py-4 rounded-2xl"
+          className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 rounded-2xl"
           style={{
             background: 'rgba(6,13,20,0.85)',
             border: isWrongNetwork ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(0,245,255,0.15)',
@@ -71,7 +71,7 @@ export function SearchBar({
             defaultValue={defaultQuery}
             placeholder={isWrongNetwork ? 'Switch network to search...' : "Search anything — pay per query, not per month..."}
             disabled={isSearching || isWrongNetwork}
-            className="flex-1 bg-transparent text-white placeholder:text-white/20 text-sm outline-none disabled:opacity-50"
+            className="flex-1 min-w-0 bg-transparent text-white placeholder:text-white/20 text-sm outline-none disabled:opacity-50"
             style={{ caretColor: isWrongNetwork ? '#ef4444' : '#00f5ff' }}
           />
 
@@ -101,7 +101,7 @@ export function SearchBar({
       </div>
 
       {/* Meta row */}
-      <div className="flex items-center justify-between mt-2 px-1">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-2 px-1">
         <p className="font-display text-xs text-white/20">
           {walletConnected
             ? `Balance: ${usdcBalance} USDC · ~${Math.floor(parseFloat(usdcBalance) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries left`
