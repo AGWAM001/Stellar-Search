@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Zap, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 import { IS_MAINNET, EXPECTED_WALLET_NETWORK, AMOUNT_USDC } from '../../lib/stellar'
 
 interface Props {
@@ -26,14 +27,20 @@ export function SearchBar({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (isWrongNetwork) return
+
+    if (walletConnected && parseFloat(usdcBalance) < parseFloat(AMOUNT_USDC)) {
+      toast.info('Low Balance', { description: `You need at least ${AMOUNT_USDC} USDC to search.` })
+      return
+    }
+
     const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
     if (q) onSearch(q)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
+    <form onSubmit={handleSubmit} className="relative" role="search" aria-label="Search">
       {isWrongNetwork && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="absolute -top-12 left-0 right-0 py-2 px-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400"
@@ -48,9 +55,8 @@ export function SearchBar({
       <div className="relative group">
         {/* Glow ring on focus */}
         <div
-          className={`absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm ${
-            isWrongNetwork ? 'bg-red-500/20' : ''
-          }`}
+          className={`absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm ${isWrongNetwork ? 'bg-red-500/20' : ''
+            }`}
           style={!isWrongNetwork ? { background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' } : {}}
         />
 
@@ -68,6 +74,7 @@ export function SearchBar({
             ref={inputRef}
             name="q"
             type="text"
+            aria-label="Search query"
             defaultValue={defaultQuery}
             placeholder={isWrongNetwork ? 'Switch network to search...' : "Search anything — pay per query, not per month..."}
             disabled={isSearching || isWrongNetwork}
