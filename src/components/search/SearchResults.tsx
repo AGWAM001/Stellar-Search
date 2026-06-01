@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ExternalLink, Star, Clock, Sparkles } from 'lucide-react'
+import { ExternalLink, Star, Clock, Sparkles, Search } from 'lucide-react'
 import type { SearchResult } from '../../hooks/useSearch'
 
 interface Props {
@@ -123,7 +123,7 @@ export function SearchResults({ results, query, isLoading }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-display text-xs text-white/35 tracking-widest">
+        <p className="font-display text-xs text-white/35 tracking-widest" aria-live="polite">
           {results.length} RESULTS · SERPER.DEV · PAID VIA x402
         </p>
         <div className="flex items-center gap-3">
@@ -190,6 +190,8 @@ export function SearchResults({ results, query, isLoading }: Props) {
           href={r.url}
           target="_blank"
           rel="noopener noreferrer"
+          role="article"
+          aria-label={r.title}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.06 }}

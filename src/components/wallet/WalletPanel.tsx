@@ -65,6 +65,9 @@ export function WalletPanel({
     <div className="relative">
       <motion.button
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Wallet menu"
         className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-display text-xs tracking-wider transition-all ${
           isWrongNetwork 
             ? 'border-red-500/50 bg-red-500/5 text-red-400' 

@@ -64,11 +64,12 @@ export function Navbar({
         </div>
 
         {/* Nav links */}
-        <nav className="flex items-center gap-1 flex-1">
+        <nav className="flex items-center gap-1 flex-1" role="navigation" aria-label="Main navigation">
           {NAV_ITEMS.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => onNavigate(id)}
+              aria-current={page === id ? "page" : undefined}
               className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-display text-xs tracking-wider transition-colors"
               style={{ color: page === id ? '#00f5ff' : 'rgba(255,255,255,0.3)' }}
             >
