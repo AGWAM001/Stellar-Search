@@ -20,8 +20,9 @@ import Groq from 'groq-sdk'
 import { paymentMiddlewareFromConfig } from '@x402/express'
 import { ExactStellarScheme } from '@x402/stellar/exact/server'
 import { HTTPFacilitatorClient } from '@x402/core/server'
-import { 
-  STELLAR_NETWORK, 
+import logger from './logger'
+import {
+  STELLAR_NETWORK,
   HORIZON_URL, 
   AMOUNT_USDC, 
   AMOUNT_STROOPS 
@@ -104,6 +105,29 @@ const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL })
 const schemes = [{ network: NETWORK, server: new ExactStellarScheme() }]
 
 // Apply middleware to all routes, not just /search
+
+// ─── Payment Logging Middleware ──────────────────────────────────────────
+app.use((req, res, next) => {
+  if (req.path === '/search') {
+    const { q } = req.query as Record<string, string>;
+    const truncatedQ = q ? String(q).substring(0, 50) : '';
+
+    res.on('finish', () => {
+      let paymentStatus = 'error';
+      if (res.statusCode === 200) paymentStatus = 'paid';
+      else if (res.statusCode === 402) paymentStatus = '402';
+
+      logger.info('Payment attempt', {
+        timestamp: new Date().toISOString(),
+        ip: req.ip,
+        query: truncatedQ,
+        paymentStatus: paymentStatus,
+      });
+    });
+  }
+  next();
+});
+
 app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
 
 const MAX_QUERY_LENGTH = 256
