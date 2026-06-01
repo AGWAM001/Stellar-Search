@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ExternalLink, Activity, BarChart2, RefreshCw, History, Search } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { IS_MAINNET, STELLAR_NETWORK, AMOUNT_USDC, STELLAR_EXPERT_URL, truncateHash, formatTimeAgo, explorerTxUrl, explorerAccountUrl } from '../lib/stellar'
 import type { StellarTransaction } from '../hooks/useFreighterWallet'
 import type { SearchReceipt } from '../hooks/useSearch'
@@ -29,6 +30,23 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
   }, [])
 
   const networkLabel = IS_MAINNET ? 'STELLAR MAINNET' : 'STELLAR TESTNET'
+
+  const chartData = useMemo(() => {
+    const usdcTxs = transactions.filter(tx => tx.asset === 'USDC')
+    const sortedTxs = [...usdcTxs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    
+    const grouped = sortedTxs.reduce((acc, tx) => {
+      const date = new Date(tx.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      if (!acc[date]) acc[date] = 0
+      acc[date] += parseFloat(tx.amount)
+      return acc
+    }, {} as Record<string, number>)
+
+    return Object.entries(grouped).map(([date, amount]) => ({
+      date,
+      amount: parseFloat(amount.toFixed(2))
+    }))
+  }, [transactions])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
@@ -104,6 +122,64 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
           style={{ background: 'rgba(6,13,20,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}
         >
           <p className="font-display text-white/30 text-sm">Connect your Freighter wallet to see live account data</p>
+        </motion.div>
+      )}
+
+      {/* USDC Spent Chart */}
+      {publicKey && chartData.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="rounded-2xl p-5"
+          style={{ background: 'rgba(6,13,20,0.7)', border: '1px solid rgba(255,184,0,0.15)' }}
+        >
+          <div className="flex items-center gap-2 mb-6">
+            <BarChart2 className="w-4 h-4 text-neon-amber/40" />
+            <span className="font-display text-xs text-white/30 tracking-widest">USDC SPENT OVER TIME</span>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="rgba(255,255,255,0.2)" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  fontFamily="monospace"
+                />
+                <YAxis 
+                  stroke="rgba(255,255,255,0.2)" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickFormatter={(val) => `$${val}`}
+                  fontFamily="monospace"
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,184,0,0.05)' }}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(6,13,20,0.9)', 
+                    border: '1px solid rgba(255,184,0,0.2)',
+                    borderRadius: '8px',
+                    fontFamily: 'monospace',
+                    fontSize: '12px'
+                  }}
+                  itemStyle={{ color: '#ffb800' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  fill="#ffb800" 
+                  radius={[4, 4, 0, 0]} 
+                  maxBarSize={40}
+                  animationDuration={1500}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </motion.div>
       )}
 

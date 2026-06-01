@@ -11,12 +11,13 @@
  */
 
 import { useState, useCallback }              from 'react'
+import { toast }                               from 'sonner'
 import { x402Client, x402HTTPClient }          from '@x402/fetch'
 import { ExactStellarScheme }                  from '@x402/stellar/exact/client'
 import { signAuthEntry, getNetworkDetails }    from '@stellar/freighter-api'
 import { Networks }                            from '@stellar/stellar-sdk'
 import { Buffer }                              from 'buffer'
-import { HORIZON_URL, IS_MAINNET, EXPECTED_WALLET_NETWORK } from '../lib/stellar'
+import { HORIZON_URL, IS_MAINNET, EXPECTED_WALLET_NETWORK, explorerTxUrl } from '../lib/stellar'
 
 const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
   typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
@@ -194,6 +195,16 @@ export function useSearch(walletAddress: string | null = null) {
         suggestions: data.suggestions ?? [],
       })
 
+      if (data.txHash) {
+        toast.success(`Payment settled: ${data.paidAmount || '0.001'} USDC`, {
+          description: 'View transaction on Stellar network',
+          action: {
+            label: 'Explorer',
+            onClick: () => window.open(explorerTxUrl(data.txHash), '_blank')
+          }
+        })
+      }
+
       // Persist receipt
       if (data.txHash) {
         try {
@@ -219,10 +230,12 @@ export function useSearch(walletAddress: string | null = null) {
 
     } catch (err: any) {
       console.error('❌ Search failed:', err)
+      const msg = err.message || 'Search failed.'
+      toast.error('Search Payment Failed', { description: msg })
       setSession(prev => ({
         ...prev,
         status: 'error',
-        error:  err.message || 'Search failed.',
+        error:  msg,
       }))
     }
   }, [walletAddress])

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ExternalLink, Star, Clock, Sparkles } from 'lucide-react'
+import { ExternalLink, Star, Clock, Sparkles, Search } from 'lucide-react'
 import type { SearchResult } from '../../hooks/useSearch'
 
 interface Props {
   results: SearchResult[]
   query: string
+  status?: string
 }
 
 const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
@@ -18,6 +19,32 @@ export function SearchResults({ results, query }: Props) {
   const [summary, setSummary]               = useState<string>('')
   const [summaryError, setSummaryError]     = useState<string | null>(null)
   const [summarizing, setSummarizing]       = useState(false)
+
+  if (status === 'idle') {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-12 text-center rounded-xl border border-white/5 bg-white/5 mt-4">
+         <Search className="w-8 h-8 text-white/20 mx-auto mb-4" />
+         <p className="font-display text-white/40 text-sm mb-6">Search the web, pay with USDC</p>
+         <div className="flex flex-wrap justify-center gap-2">
+           {['What is the x402 protocol?', 'Stellar Soroban smart contracts', 'Top 10 AI agent tools'].map(q => (
+             <button 
+               key={q} 
+               onClick={() => {
+                 const input = document.querySelector<HTMLInputElement>('input[name="q"]')
+                 if (input) {
+                   input.value = q
+                   input.focus()
+                 }
+               }}
+               className="px-3 py-1.5 rounded-lg border border-white/10 text-white/50 text-xs font-display tracking-wider hover:border-neon-cyan/40 hover:text-neon-cyan hover:bg-neon-cyan/5 transition-all"
+             >
+               {q}
+             </button>
+           ))}
+         </div>
+      </motion.div>
+    )
+  }
 
   if (!results.length) return null
 
@@ -100,7 +127,7 @@ export function SearchResults({ results, query }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-display text-xs text-white/35 tracking-widest">
+        <p className="font-display text-xs text-white/35 tracking-widest" aria-live="polite">
           {results.length} RESULTS · SERPER.DEV · PAID VIA x402
         </p>
         <div className="flex items-center gap-3">
@@ -167,6 +194,8 @@ export function SearchResults({ results, query }: Props) {
           href={r.url}
           target="_blank"
           rel="noopener noreferrer"
+          role="article"
+          aria-label={r.title}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.06 }}
