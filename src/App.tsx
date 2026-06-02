@@ -4,6 +4,7 @@ import { AnimatedBackground, Navbar, LiveTicker, Footer } from './components/lay
 import { GroqAssistant }                       from './components/ai'
 import { SearchPage, DocsPage, DashboardPage } from './pages'
 import { useFreighterWallet, useSearch }       from './hooks'
+import { Toaster }                             from 'sonner'
 
 type Page = 'search' | 'docs' | 'dashboard'
 
@@ -90,6 +91,8 @@ export default function App() {
 
       {/* Floating Groq AI assistant */}
       <GroqAssistant lastSearch={lastSearch} />
+
+      <Toaster position="bottom-right" theme="dark" duration={4000} richColors />
     </div>
   )
 }

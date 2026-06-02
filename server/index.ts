@@ -16,6 +16,7 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { buildCorsOptions, getCorsStartupMessage } from './corsConfig.js'
 import Groq from 'groq-sdk'
 import { paymentMiddlewareFromConfig } from '@x402/express'
 import { ExactStellarScheme } from '@x402/stellar/exact/server'
@@ -56,23 +57,7 @@ if (!GROQ_API_KEY)      console.warn('⚠  GROQ_API_KEY not set')
 const groq = new Groq({ apiKey: GROQ_API_KEY })
 
 // ─── Middleware ───────────────────────────────────────────────────────────
-app.use(cors({
-  origin: '*',
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Payment',
-    'payment-signature',
-    // ← this is what the browser is complaining about
-    'x-payment',
-    'X-PAYMENT',
-  ],
-  exposedHeaders: [
-    'PAYMENT-REQUIRED',
-    'X-Payment-Response',
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'],
-}))
+app.use(cors(buildCorsOptions()))
 app.use(express.json())
 
 // ─── x402 payment guard on /search ───────────────────────────────────────
@@ -541,7 +526,8 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`   Facilitator: ${FACILITATOR_URL}`)
     console.log(`   Serper:      ${SERPER_API_KEY ? '✓' : '✗ MISSING'}`)
     console.log(`   Groq:        ${GROQ_API_KEY  ? '✓' : '✗ MISSING'}`)
-    console.log(`   Receiving:   ${RECEIVING_ADDRESS || '✗ MISSING'}\n`)
+    console.log(`   Receiving:   ${RECEIVING_ADDRESS || '✗ MISSING'}`)
+    console.log(`   ${getCorsStartupMessage()}\n`)
   })
 }
 

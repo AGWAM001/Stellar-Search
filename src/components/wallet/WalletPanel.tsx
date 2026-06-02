@@ -65,6 +65,9 @@ export function WalletPanel({
     <div className="relative">
       <motion.button
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Wallet menu"
         className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-display text-xs tracking-wider transition-all ${
           isWrongNetwork 
             ? 'border-red-500/50 bg-red-500/5 text-red-400' 
@@ -84,18 +87,25 @@ export function WalletPanel({
 
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden"
-            style={{
-              width: '320px',
-              background: 'rgba(6,13,20,0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(0,245,255,0.15)',
-            }}
-          >
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 z-40 bg-black/60 sm:hidden" 
+              onClick={() => setOpen(false)} 
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 rounded-t-2xl sm:rounded-xl overflow-hidden pb-4 sm:pb-0 w-full sm:w-[320px]"
+              style={{
+                background: 'rgba(6,13,20,0.95)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(0,245,255,0.15)',
+              }}
+            >
             {/* Header */}
             <div className="p-4 border-b border-white/5">
               <div className="flex items-center justify-between mb-2">
@@ -239,6 +249,7 @@ export function WalletPanel({
               </button>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

@@ -106,7 +106,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
 
       <AnimatePresence>
         {session.status === 'idle' && (
-          <SearchSuggestions onSelect={handleSearch} />
+          <SearchResults results={[]} query="" status="idle" />
         )}
       </AnimatePresence>
 
@@ -127,9 +127,9 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
               </div>
             )}
 
-            {session.status === 'complete' && (
+            {(session.status === 'complete' || session.status === 'searching') && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-                <SearchResults results={session.results} query={session.query} />
+                <SearchResults results={session.results} query={session.query} isLoading={session.status === 'searching'} />
               </motion.div>
             )}
 
