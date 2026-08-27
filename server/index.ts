@@ -542,6 +542,108 @@ app.get('/health', (_req: Request, res: Response) => {
   })
 })
 
+// ─── POST /ai/chat ────────────────────────────────────────────────────────
+// Streams responses as Server-Sent Events when the client sends
+// `Accept: text/event-stream`; otherwise returns the full completion as JSON
+// (back-compat fallback for callers that don't support SSE).
+app.post('/ai/chat', async (req: Request, res: Response) => {
+  const { messages, model: requestedModel } = req.body as {
+    messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+    model?: string
+  }
+
+  if (!messages?.length) {
+    return res.status(400).json({ error: 'messages array required' })
+  }
+
+  // Available models whitelist
+  const AVAILABLE_MODELS = [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'mixtral-8x7b-32768',
+  ]
+  
+  // Use requested model if valid, otherwise fall back to default
+  const model = requestedModel && AVAILABLE_MODELS.includes(requestedModel)
+    ? requestedModel
+    : 'llama-3.3-70b-versatile'
+
+  const wantsStream =
+    (req.headers.accept || '').includes('text/event-stream') ||
+    req.query.stream === '1'
+
+  const groqMessages = [
+    {
+      role: 'system' as const,
+      content:
+        'You are StellarSearch AI, a concise research assistant. Help users craft better search queries and understand results. Keep responses under 200 words.',
+    },
+    ...messages,
+  ]
+
+  if (!wantsStream) {
+    try {
+      const completion = await groq.chat.completions.create({
+        model,
+        messages: groqMessages,
+        max_tokens:  512,
+        temperature: 0.7,
+      })
+
+      const content = completion.choices[0]?.message?.content || 'No response.'
+      return res.json({ content, model: completion.model })
+    } catch (err: any) {
+      console.error('[groq error]', err.message)
+      return res.status(500).json({ error: `Groq AI error: ${err.message}` })
+    }
+  }
+
+  // SSE path
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  // Disable proxy buffering (e.g. nginx) so chunks flush immediately
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders?.()
+
+  const sendEvent = (event: string, data: Record<string, unknown>) => {
+    res.write(`event: ${event}\n`)
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  }
+
+  // Abort the Groq stream if the client disconnects mid-response.
+  const controller = new AbortController()
+  req.on('close', () => controller.abort())
+
+  try {
+    const stream = await groq.chat.completions.create(
+      {
+        model,
+        messages: groqMessages,
+        max_tokens:  512,
+        temperature: 0.7,
+        stream: true,
+      },
+      { signal: controller.signal },
+    )
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content
+      if (delta) sendEvent('delta', { content: delta })
+    }
+    sendEvent('done', { model })
+    res.end()
+  } catch (err: any) {
+    if (controller.signal.aborted) return res.end()
+    console.error('[groq stream error]', err.message)
+    sendEvent('error', { error: `Groq AI error: ${err.message}` })
+    res.end()
+  }
+})
+
+
+
+
 // ─── GET / ────────────────────────────────────────────────────────────────
 app.get('/', (_req: Request, res: Response) => {
   res.json({

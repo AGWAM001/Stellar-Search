@@ -21,6 +21,118 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
   const [summary, setSummary]               = useState<string>('')
   const [summaryError, setSummaryError]     = useState<string | null>(null)
   const [summarizing, setSummarizing]       = useState(false)
+  const [copiedUrl, setCopiedUrl]           = useState<string | null>(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+
+  const copyToClipboard = async (url: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedUrl(url)
+      setTimeout(() => {
+        setCopiedUrl(prev => prev === url ? null : prev)
+      }, 1500)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = url
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        setCopiedUrl(url)
+        setTimeout(() => {
+          setCopiedUrl(prev => prev === url ? null : prev)
+        }, 1500)
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr)
+      }
+    }
+  }
+
+  const getExportFilename = (format: 'json' | 'csv') => {
+    const date = new Date()
+    const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
+    const safeQuery = query.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50)
+    return `stellarsearch_${safeQuery}_${dateStr}.${format}`
+  }
+
+  const exportAsJSON = () => {
+    const exportData = {
+      query,
+      exportedAt: new Date().toISOString(),
+      count: results.length,
+      results: results.map(r => ({
+        title: r.title,
+        url: r.url,
+        description: r.description,
+        source: r.source,
+        relevanceScore: r.relevanceScore,
+        ...(r.publishedAt ? { publishedAt: r.publishedAt } : {}),
+      })),
+    }
+
+    const jsonString = JSON.stringify(exportData, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = getExportFilename('json')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up the object URL after download
+    setTimeout(() => URL.revokeObjectURL(url), 100)
+    setShowExportMenu(false)
+  }
+
+  const exportAsCSV = () => {
+    // CSV headers
+    const headers = ['title', 'url', 'description', 'source', 'relevanceScore']
+    
+    // Escape CSV values to handle commas, quotes, and newlines
+    const escapeCSV = (value: string | number) => {
+      const stringValue = String(value ?? '')
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+        return `"${stringValue.replace(/"/g, '""')}"`
+      }
+      return stringValue
+    }
+    
+    // Build CSV content
+    const csvRows = [
+      headers.join(','),
+      ...results.map(r => [
+        escapeCSV(r.title),
+        escapeCSV(r.url),
+        escapeCSV(r.description),
+        escapeCSV(r.source),
+        escapeCSV(r.relevanceScore),
+      ].join(','))
+    ]
+    
+    const csvString = csvRows.join('\n')
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = getExportFilename('csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up the object URL after download
+    setTimeout(() => URL.revokeObjectURL(url), 100)
+    setShowExportMenu(false)
+  }
 
   if (isLoading) {
     return (
@@ -147,6 +259,56 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          {/* Export Button with Format Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-display text-xs tracking-wider text-white/70 hover:text-neon-cyan hover:bg-neon-cyan/10 transition-colors"
+              style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)' }}
+              aria-label="Export search results"
+            >
+              <Download className="w-3 h-3" />
+              EXPORT
+            </button>
+
+            {/* Export Format Dropdown */}
+            <AnimatePresence>
+              {showExportMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute top-full right-0 mt-1 w-48 rounded-lg overflow-hidden z-50"
+                  style={{
+                    background: 'rgba(6,13,20,0.98)',
+                    border: '1px solid rgba(0,245,255,0.2)',
+                  }}
+                >
+                  <button
+                    onClick={exportAsJSON}
+                    className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileJson className="w-4 h-4 text-neon-cyan" />
+                    <div>
+                      <div className="text-xs text-white">JSON Format</div>
+                      <div className="text-[10px] text-white/40">Structured data export</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={exportAsCSV}
+                    className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-neon-green" />
+                    <div>
+                      <div className="text-xs text-white">CSV Format</div>
+                      <div className="text-[10px] text-white/40">Spreadsheet compatible</div>
+                    </div>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             onClick={summarize}
             disabled={summarizing}
@@ -215,7 +377,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.06 }}
-          className="block group rounded-xl p-4 hover:border-neon-cyan/25 transition-all"
+          className="block group rounded-xl p-4 hover:border-neon-cyan/25 transition-all relative"
           style={{
             background: 'rgba(6,13,20,0.6)',
             border: '1px solid rgba(255,255,255,0.06)',
@@ -253,9 +415,45 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                 {r.title}
               </h3>
 
-              <p className="font-mono text-xs mb-2 truncate" style={{ color: 'rgba(0,245,255,0.35)' }}>
-                {r.url}
-              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="font-mono text-xs truncate" style={{ color: 'rgba(0,245,255,0.35)' }}>
+                  {r.url}
+                </p>
+                <button
+                  onClick={(e) => copyToClipboard(r.url, e)}
+                  className="relative flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
+                  style={{
+                    border: copiedUrl === r.url ? '1px solid rgba(0,255,0,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                    color: copiedUrl === r.url ? '#00ff00' : 'rgba(255,255,255,0.4)',
+                  }}
+                  aria-label="Copy URL to clipboard"
+                  title="Copy URL"
+                >
+                  {copiedUrl === r.url ? (
+                    <Check className="w-3 h-3" />
+                  ) : (
+                    <Copy className="w-3 h-3" />
+                  )}
+                  
+                  <AnimatePresence>
+                    {copiedUrl === r.url && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5, scale: 0.8 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.8 }}
+                        className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap pointer-events-none"
+                        style={{
+                          background: 'rgba(0,0,0,0.9)',
+                          border: '1px solid rgba(0,255,0,0.3)',
+                          color: '#00ff00',
+                        }}
+                      >
+                        Copied!
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </button>
+              </div>
 
               <p className="text-white/45 text-xs leading-relaxed line-clamp-2">
                 {r.description}
@@ -267,7 +465,6 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
             </div>
           </div>
 
-          {/* Relevance bar */}
           <div className="mt-3 h-px bg-white/5 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
