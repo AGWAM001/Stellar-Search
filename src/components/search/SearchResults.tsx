@@ -184,6 +184,56 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          {/* Export Button with Format Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-display text-xs tracking-wider text-white/70 hover:text-neon-cyan hover:bg-neon-cyan/10 transition-colors"
+              style={{ border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)' }}
+              aria-label="Export search results"
+            >
+              <Download className="w-3 h-3" />
+              EXPORT
+            </button>
+
+            {/* Export Format Dropdown */}
+            <AnimatePresence>
+              {showExportMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute top-full right-0 mt-1 w-48 rounded-lg overflow-hidden z-50"
+                  style={{
+                    background: 'rgba(6,13,20,0.98)',
+                    border: '1px solid rgba(0,245,255,0.2)',
+                  }}
+                >
+                  <button
+                    onClick={exportAsJSON}
+                    className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileJson className="w-4 h-4 text-neon-cyan" />
+                    <div>
+                      <div className="text-xs text-white">JSON Format</div>
+                      <div className="text-[10px] text-white/40">Structured data export</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={exportAsCSV}
+                    className="w-full px-3 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-neon-green" />
+                    <div>
+                      <div className="text-xs text-white">CSV Format</div>
+                      <div className="text-[10px] text-white/40">Spreadsheet compatible</div>
+                    </div>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             onClick={summarize}
             disabled={summarizing}
@@ -342,7 +392,6 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
             </div>
           </div>
 
-          {/* Relevance bar */}
           <div className="mt-3 h-px bg-white/5 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
