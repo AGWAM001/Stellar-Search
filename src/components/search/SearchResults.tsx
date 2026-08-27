@@ -22,20 +22,24 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
   const [summaryError, setSummaryError]     = useState<string | null>(null)
   const [summarizing, setSummarizing]       = useState(false)
   const [copiedUrl, setCopiedUrl]           = useState<string | null>(null)
-  const [showExportMenu, setShowExportMenu] = useState(false)
 
   const copyToClipboard = async (url: string, e: React.MouseEvent) => {
+    // Prevent the anchor tag from navigating when clicking copy button
     e.preventDefault()
     e.stopPropagation()
     
     try {
       await navigator.clipboard.writeText(url)
       setCopiedUrl(url)
+      
+      // Reset copied state after 1.5 seconds
       setTimeout(() => {
         setCopiedUrl(prev => prev === url ? null : prev)
       }, 1500)
     } catch (err) {
       console.error('Failed to copy:', err)
+      
+      // Fallback for older browsers
       try {
         const textArea = document.createElement('textarea')
         textArea.value = url
@@ -53,85 +57,6 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
         console.error('Fallback copy failed:', fallbackErr)
       }
     }
-  }
-
-  const getExportFilename = (format: 'json' | 'csv') => {
-    const date = new Date()
-    const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
-    const safeQuery = query.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50)
-    return `stellarsearch_${safeQuery}_${dateStr}.${format}`
-  }
-
-  const exportAsJSON = () => {
-    const exportData = {
-      query,
-      exportedAt: new Date().toISOString(),
-      count: results.length,
-      results: results.map(r => ({
-        title: r.title,
-        url: r.url,
-        description: r.description,
-        source: r.source,
-        relevanceScore: r.relevanceScore,
-        ...(r.publishedAt ? { publishedAt: r.publishedAt } : {}),
-      })),
-    }
-
-    const jsonString = JSON.stringify(exportData, null, 2)
-    const blob = new Blob([jsonString], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    
-    const link = document.createElement('a')
-    link.href = url
-    link.download = getExportFilename('json')
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    // Clean up the object URL after download
-    setTimeout(() => URL.revokeObjectURL(url), 100)
-    setShowExportMenu(false)
-  }
-
-  const exportAsCSV = () => {
-    // CSV headers
-    const headers = ['title', 'url', 'description', 'source', 'relevanceScore']
-    
-    // Escape CSV values to handle commas, quotes, and newlines
-    const escapeCSV = (value: string | number) => {
-      const stringValue = String(value ?? '')
-      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
-        return `"${stringValue.replace(/"/g, '""')}"`
-      }
-      return stringValue
-    }
-    
-    // Build CSV content
-    const csvRows = [
-      headers.join(','),
-      ...results.map(r => [
-        escapeCSV(r.title),
-        escapeCSV(r.url),
-        escapeCSV(r.description),
-        escapeCSV(r.source),
-        escapeCSV(r.relevanceScore),
-      ].join(','))
-    ]
-    
-    const csvString = csvRows.join('\n')
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    
-    const link = document.createElement('a')
-    link.href = url
-    link.download = getExportFilename('csv')
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    // Clean up the object URL after download
-    setTimeout(() => URL.revokeObjectURL(url), 100)
-    setShowExportMenu(false)
   }
 
   if (isLoading) {
@@ -419,6 +344,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                 <p className="font-mono text-xs truncate" style={{ color: 'rgba(0,245,255,0.35)' }}>
                   {r.url}
                 </p>
+                {/* Copy button */}
                 <button
                   onClick={(e) => copyToClipboard(r.url, e)}
                   className="relative flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
@@ -435,6 +361,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                     <Copy className="w-3 h-3" />
                   )}
                   
+                  {/* Tooltip */}
                   <AnimatePresence>
                     {copiedUrl === r.url && (
                       <motion.div
