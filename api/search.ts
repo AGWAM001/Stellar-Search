@@ -5,6 +5,7 @@ import {
   AMOUNT_STROOPS,
   AMOUNT_USDC
 } from '../src/lib/constants'
+import { consumePaymentPayload } from '../src/lib/paymentIntegrity'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
@@ -71,6 +72,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       Buffer.from(JSON.stringify(paymentRequired)).toString('base64')
     )
     return res.status(402).json({ error: 'Payment required' })
+  }
+
+  // ─── Payment Replay Protection ───────────────────────────────────────────
+  const consumption = consumePaymentPayload(paymentHeader)
+  if (!consumption.ok) {
+    return res.status(402).json({ error: consumption.error })
   }
 
   // ─── Payment present — proceed with search ────────────────────────────────
