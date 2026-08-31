@@ -1,3 +1,4 @@
+import { readBrowserConfig } from '../lib/config'
 /**
  * useSearch.ts
  * Fixed x402 + Freighter payment flow.
@@ -19,11 +20,7 @@ import { Networks }                            from '@stellar/stellar-sdk'
 import { Buffer }                              from 'buffer'
 import { IS_MAINNET, EXPECTED_WALLET_NETWORK, explorerTxUrl } from '../lib/stellar'
 
-const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL ?? (
-  typeof window !== 'undefined' && window.location.origin.includes('vercel.app') 
-    ? `${window.location.origin}/api`
-    : 'http://localhost:3001'
-)
+const SERVER_URL = readBrowserConfig().apiBaseUrl
 
 // Soroban RPC URLs
 const SOROBAN_RPC_TESTNET = 'https://soroban-testnet.stellar.org'

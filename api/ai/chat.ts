@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
+import { readServerConfig } from '../../src/lib/config'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -15,6 +14,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!messages?.length) {
     return res.status(400).json({ error: 'messages array required' })
   }
+
+  // Groq is an optional feature: keep paid search deployable without its key.
+  const groqApiKey = readServerConfig().groqApiKey
+  if (!groqApiKey) return res.status(503).json({ error: 'AI assistant is not configured.' })
+  const groq = new Groq({ apiKey: groqApiKey })
 
   try {
     const completion = await groq.chat.completions.create({
