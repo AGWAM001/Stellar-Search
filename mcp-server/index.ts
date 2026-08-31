@@ -22,6 +22,7 @@ import {
   STELLAR_EXPERT_URL,
   AMOUNT_USDC
 } from '../src/lib/constants'
+import { formatReceipt } from './receipt'
 
 dotenv.config()
 
@@ -42,6 +43,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: 'web_search',
       description: `Search the web via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
 The server handles the full payment flow: HTTP 402 → sign Soroban auth → settle → return results.
+Paid responses include a verifiable x402 receipt with on-chain transaction hash and Stellar Expert explorer link.
 Use for current events, documentation, research, or anything needing up-to-date web information.`,
       inputSchema: {
         type: 'object',
@@ -57,6 +59,7 @@ Use for current events, documentation, research, or anything needing up-to-date 
       name: 'image_search',
       description: `Search the web for images via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
 Returns image URLs, titles, and source domains via the Serper.dev images API.
+Paid responses include a verifiable x402 receipt with on-chain transaction hash and Stellar Expert explorer link.
 Use for visual references, photos, diagrams, or anything where you need image results.`,
       inputSchema: {
         type: 'object',
@@ -71,6 +74,7 @@ Use for visual references, photos, diagrams, or anything where you need image re
       name: 'news_search',
       description: `Search recent news articles via StellarSearch. Automatically pays ${AMOUNT_USDC} USDC on Stellar (x402 protocol).
 Returns articles with title, URL, snippet, publication date, and source via the Serper.dev news API.
+Paid responses include a verifiable x402 receipt with on-chain transaction hash and Stellar Expert explorer link.
 Use for breaking stories, current events, and time-sensitive reporting.`,
       inputSchema: {
         type: 'object',
@@ -138,6 +142,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const data = await res.json() as any
+      const receipt = formatReceipt({
+        txHash: data.txHash,
+        paidAmount: data.paidAmount,
+        currency: data.currency,
+        network: data.network,
+        x402Version: data.x402Version,
+      })
       const formatted = data.results
         .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.description}`)
         .join('\n\n')
@@ -148,6 +159,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           text: [
             `🔍 Results for: "${query}"`,
             `💰 Paid: ${data.paidAmount} ${data.currency} on ${data.network}`,
+            ...receipt.lines,
             `⚡ Latency: ${data.latencyMs}ms`,
             `📊 ${data.count} results\n`,
             formatted,
@@ -175,6 +187,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const data: any = await res.json()
+      const receipt = formatReceipt({
+        txHash: data.txHash,
+        paidAmount: data.paidAmount,
+        currency: data.currency,
+        network: data.network,
+        x402Version: data.x402Version,
+      })
       const formatted = data.results
         .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   Image: ${r.imageUrl}\n   Source: ${r.sourceUrl} (${r.source})`)
         .join('\n\n')
@@ -185,6 +204,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           text: [
             `🖼️  Image results for: "${query}"`,
             `💰 Paid: ${data.paidAmount} ${data.currency} on ${data.network}`,
+            ...receipt.lines,
             `⚡ Latency: ${data.latencyMs}ms`,
             `📊 ${data.count} results\n`,
             formatted,
@@ -215,6 +235,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const data: any = await res.json()
+      const receipt = formatReceipt({
+        txHash: data.txHash,
+        paidAmount: data.paidAmount,
+        currency: data.currency,
+        network: data.network,
+        x402Version: data.x402Version,
+      })
       const formatted = data.results
         .map((r: any, i: number) => {
           const date = r.publishedAt ? ` · ${r.publishedAt}` : ''
@@ -228,6 +255,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           text: [
             `📰 News results for: "${query}"`,
             `💰 Paid: ${data.paidAmount} ${data.currency} on ${data.network}`,
+            ...receipt.lines,
             `⚡ Latency: ${data.latencyMs}ms`,
             `📊 ${data.count} results\n`,
             formatted,
