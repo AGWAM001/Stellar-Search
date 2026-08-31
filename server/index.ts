@@ -520,6 +520,7 @@ app.post('/ai/chat', async (req: Request, res: Response) => {
 
   const wantsStream =
     (req.headers.accept || '').includes('text/event-stream') ||
+    (req.body as any)?.stream === true ||
     req.query.stream === '1'
 
   const groqMessages = [
