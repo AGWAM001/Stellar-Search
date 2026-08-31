@@ -6,7 +6,8 @@ import {
   AMOUNT_USDC
 } from '../src/lib/constants'
 import { consumePaymentPayload } from '../src/lib/paymentIntegrity'
-import type { SearchResponse, ApiErrorResponse, SearchResult } from '../src/types/index.js'
+import { normalizeOrganicResults } from '../src/lib/serperNormalizer'
+import type { SearchResponse, ApiErrorResponse } from '../src/types/index.js'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
@@ -135,21 +136,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(502).json(errorBody)
     }
 
-    const data      = await serperRes.json() as Record<string, any>
-    const latencyMs = Date.now() - t0
+    const data: unknown = await serperRes.json()
+    const latencyMs    = Date.now() - t0
 
-    const results: SearchResult[] = (data.organic || []).map((r: any, i: number) => ({
-      id:             String(i + 1),
-      title:          r.title   || 'No title',
-      url:            r.link,
-      description:    r.snippet || '',
-      source:         (() => {
-        try { return new URL(r.link).hostname.replace('www.', '') }
-        catch { return r.link }
-      })(),
-      relevanceScore: Math.max(0.5, 1 - i * 0.06),
-      publishedAt:    r.date || undefined,
-    }))
+    const results = normalizeOrganicResults(data)
 
     const responseBody: SearchResponse = {
       query:      q.trim(),
