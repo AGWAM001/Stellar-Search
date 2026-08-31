@@ -215,13 +215,16 @@ app.get('/search', async (req: Request, res: Response) => {
   const { q, count = '5', freshness } = req.query as Record<string, string>
 
   const v = validateQuery(q)
-  if (!v.ok) return res.status(400).json({ error: v.error })
+  if (!v.ok) {
+    const errorBody: ApiErrorResponse = { error: v.error }
+    return res.status(400).json(errorBody)
+  }
   const cleanQ = v.cleanQ
 
   const t0 = Date.now()
 
   try {
-    const requestBody: any = {
+    const requestBody: Record<string, unknown> = {
       q: cleanQ,
       num: Math.min(parseInt(count) || 5, 20),
     }
@@ -250,7 +253,8 @@ app.get('/search', async (req: Request, res: Response) => {
     if (!serperRes.ok) {
       const err = await serperRes.text()
       console.error('[serper]', serperRes.status, err)
-      return res.status(502).json({ error: `Serper.dev API error: ${serperRes.status}` })
+      const errorBody: ApiErrorResponse = { error: `Serper.dev API error: ${serperRes.status}` }
+      return res.status(502).json(errorBody)
     }
 
     const data: unknown = await serperRes.json()
@@ -327,7 +331,10 @@ app.get('/images', async (req: Request, res: Response) => {
   const { q, count = '10' } = req.query as Record<string, string>
 
   const v = validateQuery(q)
-  if (!v.ok) return res.status(400).json({ error: v.error })
+  if (!v.ok) {
+    const errorBody: ApiErrorResponse = { error: v.error }
+    return res.status(400).json(errorBody)
+  }
   const cleanQ = v.cleanQ
 
   const t0 = Date.now()
@@ -388,7 +395,10 @@ app.get('/news', async (req: Request, res: Response) => {
   const { q, count = '10', freshness } = req.query as Record<string, string>
 
   const v = validateQuery(q)
-  if (!v.ok) return res.status(400).json({ error: v.error })
+  if (!v.ok) {
+    const errorBody: ApiErrorResponse = { error: v.error }
+    return res.status(400).json(errorBody)
+  }
   const cleanQ = v.cleanQ
 
   const t0 = Date.now()
