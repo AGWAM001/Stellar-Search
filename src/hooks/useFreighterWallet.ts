@@ -13,6 +13,7 @@ import {
 } from '@stellar/freighter-api'
 import { Horizon } from '@stellar/stellar-sdk'
 import { HORIZON_URL, USDC_ISSUER } from '../lib/stellar'
+import i18n from '../i18n'
 import type { WalletState, StellarTransaction } from '../types'
 
 export type { WalletState, StellarTransaction }
@@ -73,6 +74,7 @@ export function useFreighterWallet() {
     network: 'TESTNET',
     xlmBalance: '0',
     usdcBalance: '0',
+    hasUsdcTrustline: false,
     loading: false,
     error: null,
   })
@@ -86,6 +88,7 @@ export function useFreighterWallet() {
 
       let xlm = '0'
       let usdc = '0'
+      let hasUsdcTrustline = false
 
       for (const balance of account.balances) {
         if (balance.asset_type === 'native') {
@@ -95,6 +98,11 @@ export function useFreighterWallet() {
           (balance as any).asset_code === 'USDC' &&
           (balance as any).asset_issuer === USDC_ISSUER
         ) {
+          // A balance line existing at all means the trustline is
+          // established, regardless of the amount (#342) — checked before
+          // reading .balance so a freshly-opened, still-zero trustline is
+          // still correctly detected as "established".
+          hasUsdcTrustline = true
           usdc = parseFloat(balance.balance).toFixed(6)
         }
       }
@@ -103,12 +111,13 @@ export function useFreighterWallet() {
         ...prev,
         xlmBalance: xlm,
         usdcBalance: usdc,
+        hasUsdcTrustline,
         error: null,
       }))
     } catch (err: any) {
       setWallet((prev: WalletState) => ({
         ...prev,
-        error: err.message || 'Failed to load account',
+        error: err.message || i18n.t('errors:accountLoadFailed'),
       }))
     }
   }, [])
@@ -211,9 +220,7 @@ export function useFreighterWallet() {
     try {
       const connected = await isConnected()
       if (!connected.isConnected) {
-        throw new Error(
-          'Freighter extension not found. Install it from freighter.app'
-        )
+        throw new Error(i18n.t('errors:freighterNotFound'))
       }
 
       const accessResult = await requestAccess()
@@ -246,7 +253,7 @@ export function useFreighterWallet() {
         ...prev,
         loading: false,
         connected: false,
-        error: err.message || 'Connection failed',
+        error: err.message || i18n.t('errors:connectionFailed'),
       }))
     }
   }, [fetchBalances, fetchTransactions])
@@ -258,6 +265,7 @@ export function useFreighterWallet() {
       network: 'TESTNET',
       xlmBalance: '0',
       usdcBalance: '0',
+      hasUsdcTrustline: false,
       loading: false,
       error: null,
     })
