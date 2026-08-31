@@ -42,7 +42,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
       return acc
     }, {} as Record<string, number>)
 
-    return Object.entries(grouped).map(([date, amount]) => ({
+    return Object.entries(grouped).map(([date, amount]: [string, number]) => ({
       date,
       amount: parseFloat(amount.toFixed(2))
     }))

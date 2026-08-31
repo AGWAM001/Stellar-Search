@@ -58,14 +58,14 @@ export function useFreighterWallet() {
         }
       }
 
-      setWallet(prev => ({
+      setWallet((prev: WalletState) => ({
         ...prev,
         xlmBalance: xlm,
         usdcBalance: usdc,
         error: null,
       }))
     } catch (err: any) {
-      setWallet(prev => ({
+      setWallet((prev: WalletState) => ({
         ...prev,
         error: err.message || 'Failed to load account',
       }))
@@ -110,7 +110,7 @@ export function useFreighterWallet() {
 
   // Connect Freighter wallet
   const connect = useCallback(async () => {
-    setWallet(prev => ({ ...prev, loading: true, error: null }))
+    setWallet((prev: WalletState) => ({ ...prev, loading: true, error: null }))
 
     try {
       const connected = await isConnected()
@@ -133,7 +133,7 @@ export function useFreighterWallet() {
       const networkResult = await getNetwork()
       const network = networkResult.network || 'TESTNET'
 
-      setWallet(prev => ({
+      setWallet((prev: WalletState) => ({
         ...prev,
         publicKey: addressResult.address,
         connected: true,
@@ -146,7 +146,7 @@ export function useFreighterWallet() {
       await fetchBalances(addressResult.address)
       await fetchTransactions(addressResult.address)
     } catch (err: any) {
-      setWallet(prev => ({
+      setWallet((prev: WalletState) => ({
         ...prev,
         loading: false,
         connected: false,
@@ -184,7 +184,7 @@ export function useFreighterWallet() {
           const addr = await getAddress()
           if (addr.address) {
             const net = await getNetwork()
-            setWallet(prev => ({
+            setWallet((prev: WalletState) => ({
               ...prev,
               publicKey: addr.address,
               connected: true,
