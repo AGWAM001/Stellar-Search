@@ -303,6 +303,7 @@ docs: add CONTRIBUTING.md
 
 4. Make sure:
    - [ ] `npx tsc --noEmit` passes with no errors.
+   - [ ] `npm run lint` passes with zero errors and zero warnings (`eslint . --max-warnings=0`).
    - [ ] The app starts and the affected feature works manually.
    - [ ] No new `console.log` / debug statements left in.
    - [ ] No secrets or `.env` values committed.
