@@ -30,14 +30,16 @@ import {
   AMOUNT_STROOPS
 } from '../src/lib/constants'
 import { consumePaymentPayload } from '../src/lib/paymentIntegrity'
+import {
+  normalizeOrganicResults,
+  normalizeImageResults,
+  normalizeNewsResults,
+} from '../src/lib/serperNormalizer.js'
 import type {
   SearchResponse,
   ImageSearchResponse,
   NewsSearchResponse,
   ApiErrorResponse,
-  SearchResult,
-  ImageResult,
-  NewsResult,
 } from '../src/types/index.js'
 
 dotenv.config()
@@ -255,7 +257,7 @@ app.get('/search', async (req: Request, res: Response) => {
       return res.status(502).json(errorBody)
     }
 
-    const data = await serperRes.json() as Record<string, any>
+    const data: unknown = await serperRes.json()
     const latencyMs = Date.now() - t0
 
     stats.totalQueries++
@@ -263,15 +265,7 @@ app.get('/search', async (req: Request, res: Response) => {
     stats.latencies.push(latencyMs)
     if (stats.latencies.length > 200) stats.latencies.shift()
 
-    const results: SearchResult[] = (data.organic || []).map((r: any, i: number) => ({
-      id: String(i + 1),
-      title: r.title || 'No title',
-      url: r.link,
-      description: r.snippet || '',
-      source: (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
-      relevanceScore: Math.max(0.5, 1 - i * 0.06),
-      publishedAt: r.date || undefined,
-    }))
+    const results = normalizeOrganicResults(data)
 
     // The real tx hash comes from the X-PAYMENT-RESPONSE header set by the facilitator
     const txHash = (req.headers['x-payment-response'] as string) || null
@@ -280,7 +274,7 @@ app.get('/search', async (req: Request, res: Response) => {
     let suggestions: string[] = []
     if (req.query.suggestions === '1' && results.length > 0) {
       try {
-        const topSnippets = results.slice(0, 3).map((r: SearchResult) => r.description).join(' | ')
+        const topSnippets = results.slice(0, 3).map((r) => r.description).join(' | ')
         const suggCompletion = await groq.chat.completions.create({
           model: 'llama-3.3-70b-versatile',
           messages: [
@@ -298,7 +292,15 @@ app.get('/search', async (req: Request, res: Response) => {
         })
         const raw = suggCompletion.choices[0]?.message?.content || '[]'
         const match = raw.match(/\[[\s\S]*\]/)
-        if (match) suggestions = JSON.parse(match[0]).slice(0, 3)
+        if (match) {
+          const parsed = JSON.parse(match[0])
+          if (Array.isArray(parsed)) {
+            suggestions = parsed
+              .filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0)
+              .map((s: string) => s.trim())
+              .slice(0, 3)
+          }
+        }
       } catch (err: any) {
         console.warn('[suggestions] Groq error:', err.message)
       }
@@ -357,7 +359,7 @@ app.get('/images', async (req: Request, res: Response) => {
       return res.status(502).json(errorBody)
     }
 
-    const data = await serperRes.json() as Record<string, any>
+    const data: unknown = await serperRes.json()
     const latencyMs = Date.now() - t0
 
     stats.totalQueries++
@@ -365,16 +367,7 @@ app.get('/images', async (req: Request, res: Response) => {
     stats.latencies.push(latencyMs)
     if (stats.latencies.length > 200) stats.latencies.shift()
 
-    const results: ImageResult[] = (data.images || []).map((r: any, i: number) => ({
-      id: String(i + 1),
-      title: r.title || 'No title',
-      imageUrl: r.imageUrl,
-      thumbnailUrl: r.thumbnailUrl || r.imageUrl,
-      sourceUrl: r.link,
-      source: (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
-      width: r.imageWidth,
-      height: r.imageHeight,
-    }))
+    const results = normalizeImageResults(data)
 
     const txHash = (req.headers['x-payment-response'] as string) || null
 
@@ -443,7 +436,7 @@ app.get('/news', async (req: Request, res: Response) => {
       return res.status(502).json(errorBody)
     }
 
-    const data = await serperRes.json() as Record<string, any>
+    const data: unknown = await serperRes.json()
     const latencyMs = Date.now() - t0
 
     stats.totalQueries++
@@ -451,15 +444,7 @@ app.get('/news', async (req: Request, res: Response) => {
     stats.latencies.push(latencyMs)
     if (stats.latencies.length > 200) stats.latencies.shift()
 
-    const results: NewsResult[] = (data.news || []).map((r: any, i: number) => ({
-      id: String(i + 1),
-      title: r.title || 'No title',
-      url: r.link,
-      snippet: r.snippet || '',
-      source: r.source || (() => { try { return new URL(r.link).hostname.replace('www.', '') } catch { return r.link } })(),
-      publishedAt: r.date || undefined,
-      imageUrl: r.imageUrl || undefined,
-    }))
+    const results = normalizeNewsResults(data)
 
     const txHash = (req.headers['x-payment-response'] as string) || null
 
