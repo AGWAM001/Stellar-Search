@@ -15,20 +15,28 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
-import { 
+import {
   HORIZON_URL, 
   USDC_ISSUER, 
   STELLAR_NETWORK,
   STELLAR_EXPERT_URL,
   AMOUNT_USDC
 } from '../src/lib/constants'
+import { formatConfigurationError, readMcpConfig } from '../src/lib/config'
 
 dotenv.config()
 
-const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
-const GROQ_API_KEY = process.env.GROQ_API_KEY!
+let config
+try {
+  config = readMcpConfig()
+} catch (error) {
+  console.error(formatConfigurationError(error))
+  throw error
+}
+const SERVER_URL = config.searchApiUrl
+const GROQ_API_KEY = config.groqApiKey
 
-const groq = new Groq({ apiKey: GROQ_API_KEY })
+const groq = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : undefined
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
@@ -242,6 +250,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ── ai_summarize ──────────────────────────────────────────────────────
   if (name === 'ai_summarize') {
     const { text, instruction = 'summarise' } = args as { text: string; instruction?: string }
+    if (!groq) {
+      return { content: [{ type: 'text', text: 'AI summarization is not configured.' }], isError: true }
+    }
 
     try {
       const completion = await groq.chat.completions.create({
