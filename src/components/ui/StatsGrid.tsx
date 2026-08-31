@@ -87,7 +87,7 @@ export function StatsGrid({ pollingIntervalMs = 10_000 }: StatsGridProps) {
           <p className="font-display text-lg font-bold" style={{ color }}>
             {fmt(stats[key])}
           </p>
-          <p className="font-display text-white/30 mt-0.5 tracking-wider uppercase"
+          <p className="font-display text-white/55 mt-0.5 tracking-wider uppercase"
             style={{ fontSize: '9px' }}>
             {label}
           </p>
@@ -98,7 +98,7 @@ export function StatsGrid({ pollingIntervalMs = 10_000 }: StatsGridProps) {
 
       <div className="col-span-2 lg:col-span-4 flex items-center justify-end gap-2 mt-1">
         <div className={`w-1.5 h-1.5 rounded-full ${stats.status === 'online' ? 'bg-neon-green animate-pulse' : 'bg-red-500'}`} />
-        <span className="font-display text-xs text-white/25">
+        <span className="font-display text-xs text-white/50">
           SERVER {stats.status === 'online' ? 'ONLINE' : 'OFFLINE — run: npm run server'}
         </span>
       </div>

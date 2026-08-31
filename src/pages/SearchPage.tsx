@@ -66,7 +66,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
               GET
             </h1>
 
-            <p className="text-white/45 text-lg max-w-md mx-auto leading-relaxed">
+            <p className="text-white/55 text-lg max-w-md mx-auto leading-relaxed">
               Real web search for AI agents.{' '}
               <span className="text-neon-cyan font-medium">{AMOUNT_USDC} USDC</span> per query settled on Stellar via x402.
               Powered by <span className="text-neon-amber font-medium">Serper.dev</span> +{' '}

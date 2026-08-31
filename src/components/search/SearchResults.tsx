@@ -197,7 +197,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2.5 flex-wrap">
-          <p className="font-display text-xs text-white/35 tracking-widest" aria-live="polite">
+          <p className="font-display text-xs text-white/55 tracking-widest" aria-live="polite">
             {results.length} RESULTS · SERPER.DEV · PAID VIA x402
           </p>
           {txHash && (
@@ -250,7 +250,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                     <FileJson className="w-4 h-4 text-neon-cyan" />
                     <div>
                       <div className="text-xs text-white">JSON Format</div>
-                      <div className="text-[10px] text-white/40">Structured data export</div>
+                      <div className="text-[10px] text-white/55">Structured data export</div>
                     </div>
                   </button>
                   <button
@@ -260,7 +260,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                     <FileSpreadsheet className="w-4 h-4 text-neon-green" />
                     <div>
                       <div className="text-xs text-white">CSV Format</div>
-                      <div className="text-[10px] text-white/40">Spreadsheet compatible</div>
+                      <div className="text-[10px] text-white/55">Spreadsheet compatible</div>
                     </div>
                   </button>
                 </motion.div>
@@ -316,7 +316,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
             {summaryError ? (
               <p className="text-red-300 text-xs">⚠ {summaryError}</p>
             ) : (
-              <p className="text-white/70 text-xs leading-relaxed whitespace-pre-wrap">
+              <p className="text-white/75 text-xs leading-relaxed whitespace-pre-wrap">
                 {summary}
                 {summarizing && <span className="text-neon-cyan/60">▌</span>}
               </p>
@@ -363,7 +363,7 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                   <span className="font-display text-xs">{(r.relevanceScore * 100).toFixed(0)}%</span>
                 </div>
                 {r.publishedAt && (
-                  <div className="flex items-center gap-1 text-white/25">
+                  <div className="flex items-center gap-1 text-white/50">
                     <Clock className="w-3 h-3" />
                     <span className="font-display text-xs">{r.publishedAt}</span>
                   </div>
@@ -381,10 +381,10 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                 {/* Copy button */}
                 <button
                   onClick={(e) => copyToClipboard(r.url, e)}
-                  className="relative flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
+                  className="relative flex-shrink-0 min-w-11 min-h-11 w-11 h-11 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10"
                   style={{
                     border: copiedUrl === r.url ? '1px solid rgba(0,255,0,0.3)' : '1px solid rgba(255,255,255,0.1)',
-                    color: copiedUrl === r.url ? '#00ff00' : 'rgba(255,255,255,0.4)',
+                    color: copiedUrl === r.url ? '#00ff00' : 'rgba(255,255,255,0.55)',
                   }}
                   aria-label="Copy URL to clipboard"
                   title="Copy URL"
@@ -416,12 +416,12 @@ export function SearchResults({ results, query, isLoading, txHash }: Props) {
                 </button>
               </div>
 
-              <p className="text-white/45 text-xs leading-relaxed line-clamp-2">
+              <p className="text-white/55 text-xs leading-relaxed line-clamp-2">
                 {r.description}
               </p>
             </div>
 
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border border-white/8 text-white/25 group-hover:text-neon-cyan group-hover:border-neon-cyan/30 transition-all mt-0.5">
+            <div className="flex-shrink-0 min-w-11 min-h-11 w-11 h-11 rounded-lg flex items-center justify-center border border-white/10 text-white/45 group-hover:text-neon-cyan group-hover:border-neon-cyan/30 transition-all mt-0.5" aria-hidden="true">
               <ExternalLink className="w-3.5 h-3.5" />
             </div>
           </div>

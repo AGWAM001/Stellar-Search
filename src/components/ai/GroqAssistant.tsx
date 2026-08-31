@@ -262,11 +262,12 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                 <div className="relative">
                   <button
                     onClick={() => setShowModelDropdown(!showModelDropdown)}
+                    aria-label="Select AI model"
                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors"
                     style={{
                       background: 'rgba(0,245,255,0.1)',
                       border: '1px solid rgba(0,245,255,0.2)',
-                      color: 'rgba(255,255,255,0.8)',
+                      color: 'rgba(255,255,255,0.85)',
                     }}
                   >
                     <span>{getModelLabel(selectedModel)}</span>
@@ -308,11 +309,11 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                     )}
                   </AnimatePresence>
                 </div>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-white/30 hover:text-white/60 transition-colors"
-              >
+              </div>                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close AI assistant"
+                  className="min-w-11 min-h-11 flex items-center justify-center rounded text-white/45 hover:text-white/70 transition-colors"
+                >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -342,7 +343,7 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                   </div>
                   {/* Show model metadata for assistant messages */}
                   {msg.role === 'assistant' && msg.model && (
-                    <div className="text-[10px] text-white/30 mt-1 px-1">
+                    <div className="text-[10px] text-white/50 mt-1 px-1">
                       {getModelLabel(msg.model)}
                     </div>
                   )}
@@ -376,7 +377,8 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
                   placeholder="Ask anything..."
                   disabled={loading}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 outline-none focus:border-neon-cyan/30 disabled:opacity-50"
+                  aria-label="Ask the AI assistant"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none focus:border-neon-cyan/30 disabled:opacity-50"
                   style={{ caretColor: '#00f5ff' }}
                 />
                 <button

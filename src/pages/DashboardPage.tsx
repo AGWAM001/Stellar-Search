@@ -54,18 +54,19 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <span className="font-display text-xs text-neon-cyan/50 tracking-widest">LIVE BLOCKCHAIN DATA</span>
+          <span className="font-display text-xs text-neon-cyan/70 tracking-widest">LIVE BLOCKCHAIN DATA</span>
           <h1 className="font-display text-3xl text-white mt-1">DASHBOARD</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${IS_MAINNET ? 'bg-neon-amber' : 'bg-neon-green'}`} />
-            <span className={`font-display text-xs tracking-wider ${IS_MAINNET ? 'text-neon-amber/60' : 'text-neon-green/60'}`}>{networkLabel}</span>
+            <span className={`font-display text-xs tracking-wider ${IS_MAINNET ? 'text-neon-amber/80' : 'text-neon-green/80'}`}>{networkLabel}</span>
           </div>
           <button
             onClick={onRefresh}
             disabled={txLoading}
-            className="p-2 rounded-lg border border-white/10 text-white/30 hover:text-neon-cyan transition-colors disabled:opacity-40"
+            aria-label="Refresh dashboard data"
+            className="min-w-11 min-h-11 flex items-center justify-center rounded-lg border border-white/10 text-white/45 hover:text-neon-cyan transition-colors disabled:opacity-40"
           >
             <RefreshCw className={`w-4 h-4 ${txLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -82,7 +83,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
           style={{ background: 'rgba(6,13,20,0.7)', border: '1px solid rgba(0,245,255,0.12)' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="font-display text-xs text-white/30 tracking-widest">YOUR STELLAR ACCOUNT</span>
+            <span className="font-display text-xs text-white/55 tracking-widest">YOUR STELLAR ACCOUNT</span>
             <a
               href={explorerAccountUrl(publicKey)}
               target="_blank"
@@ -95,22 +96,22 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
 
           <div className="grid sm:grid-cols-3 gap-4">
             <div>
-              <p className="font-display text-xs text-white/30 mb-1" style={{ fontSize: '10px' }}>PUBLIC KEY</p>
+              <p className="font-display text-xs text-white/55 mb-1" style={{ fontSize: '10px' }}>PUBLIC KEY</p>
               <p className="font-mono text-xs text-white/60 break-all leading-relaxed">{publicKey}</p>
             </div>
             <div className="py-3 px-4 rounded-xl text-center"
               style={{ background: 'rgba(255,184,0,0.05)', border: '1px solid rgba(255,184,0,0.15)' }}>
-              <p className="font-display text-xs text-white/30 mb-1" style={{ fontSize: '10px' }}>USDC BALANCE</p>
+              <p className="font-display text-xs text-white/55 mb-1" style={{ fontSize: '10px' }}>USDC BALANCE</p>
               <p className="font-display text-2xl text-neon-amber">{usdcBalance}</p>
-              <p className="font-display text-white/25 mt-1" style={{ fontSize: '9px' }}>
+              <p className="font-display text-white/45 mt-1" style={{ fontSize: '9px' }}>
                 {Math.floor(parseFloat(usdcBalance) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries remaining
               </p>
             </div>
             <div className="py-3 px-4 rounded-xl text-center"
               style={{ background: 'rgba(0,245,255,0.05)', border: '1px solid rgba(0,245,255,0.15)' }}>
-              <p className="font-display text-xs text-white/30 mb-1" style={{ fontSize: '10px' }}>XLM BALANCE</p>
+              <p className="font-display text-xs text-white/55 mb-1" style={{ fontSize: '10px' }}>XLM BALANCE</p>
               <p className="font-display text-2xl text-neon-cyan">{xlmBalance}</p>
-              <p className="font-display text-white/25 mt-1" style={{ fontSize: '9px' }}>for network fees</p>
+              <p className="font-display text-white/45 mt-1" style={{ fontSize: '9px' }}>for network fees</p>
             </div>
           </div>
         </motion.div>
@@ -121,7 +122,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
           className="rounded-2xl p-8 text-center"
           style={{ background: 'rgba(6,13,20,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <p className="font-display text-white/30 text-sm">Connect your Freighter wallet to see live account data</p>
+          <p className="font-display text-white/55 text-sm">Connect your Freighter wallet to see live account data</p>
         </motion.div>
       )}
 
@@ -136,7 +137,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         >
           <div className="flex items-center gap-2 mb-6">
             <BarChart2 className="w-4 h-4 text-neon-amber/40" />
-            <span className="font-display text-xs text-white/30 tracking-widest">USDC SPENT OVER TIME</span>
+            <span className="font-display text-xs text-white/55 tracking-widest">USDC SPENT OVER TIME</span>
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -144,14 +145,14 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis 
                   dataKey="date" 
-                  stroke="rgba(255,255,255,0.2)" 
+                  stroke="rgba(255,255,255,0.35)" 
                   fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                   fontFamily="monospace"
                 />
                 <YAxis 
-                  stroke="rgba(255,255,255,0.2)" 
+                  stroke="rgba(255,255,255,0.35)" 
                   fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
@@ -168,7 +169,7 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
                     fontSize: '12px'
                   }}
                   itemStyle={{ color: '#ffb800' }}
-                  labelStyle={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.65)', marginBottom: '4px' }}
                 />
                 <Bar 
                   dataKey="amount" 
@@ -194,14 +195,14 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-neon-cyan/40" />
-            <span className="font-display text-xs text-white/30 tracking-widest">LIVE TRANSACTION HISTORY</span>
-            <span className="font-display text-white/15" style={{ fontSize: '10px' }}>· FROM STELLAR HORIZON</span>
+            <span className="font-display text-xs text-white/55 tracking-widest">LIVE TRANSACTION HISTORY</span>
+            <span className="font-display text-white/40" style={{ fontSize: '10px' }}>· FROM STELLAR HORIZON</span>
           </div>
           <a
             href={STELLAR_EXPERT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 font-display text-xs text-white/20 hover:text-neon-cyan transition-colors"
+            className="flex items-center gap-1 font-display text-xs text-white/45 hover:text-neon-cyan transition-colors"
           >
             EXPLORER <ExternalLink className="w-3 h-3" />
           </a>
@@ -219,8 +220,8 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
           ) : transactions.length === 0 ? (
             <div className="text-center py-10">
               <BarChart2 className="w-8 h-8 text-white/10 mx-auto mb-3" />
-              <p className="font-display text-xs text-white/20 tracking-widest">NO TRANSACTIONS YET</p>
-              {!publicKey && <p className="text-white/25 text-sm mt-2">Connect your wallet to see your history</p>}
+              <p className="font-display text-xs text-white/45 tracking-widest">NO TRANSACTIONS YET</p>
+              {!publicKey && <p className="text-white/55 text-sm mt-2">Connect your wallet to see your history</p>}
             </div>
           ) : (
             transactions.map((tx, i) => (
@@ -239,12 +240,12 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
                       href={explorerTxUrl(tx.hash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-white/25 hover:text-neon-cyan transition-colors flex items-center gap-1"
+                      className="font-mono text-white/50 hover:text-neon-cyan transition-colors flex items-center gap-1"
                       style={{ fontSize: '10px' }}
                     >
                       {truncateHash(tx.hash, 6)} <ExternalLink className="w-2.5 h-2.5" />
                     </a>
-                    <span className="text-white/20" style={{ fontSize: '10px' }}>{formatTimeAgo(tx.timestamp)}</span>
+                    <span className="text-white/50" style={{ fontSize: '10px' }}>{formatTimeAgo(tx.timestamp)}</span>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
@@ -268,10 +269,10 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-neon-cyan/40" />
-            <span className="font-display text-xs text-white/30 tracking-widest">SEARCH AUDIT LOG</span>
-            <span className="font-display text-white/15" style={{ fontSize: '10px' }}>· PERSISTED LOCALLY</span>
+            <span className="font-display text-xs text-white/55 tracking-widest">SEARCH AUDIT LOG</span>
+            <span className="font-display text-white/40" style={{ fontSize: '10px' }}>· PERSISTED LOCALLY</span>
           </div>
-          <div className="font-display text-[10px] text-white/20 uppercase tracking-wider">
+          <div className="font-display text-[10px] text-white/45 uppercase tracking-wider">
             {receipts.length} RECEIPTS
           </div>
         </div>
@@ -279,9 +280,9 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
         <div className="divide-y divide-white/4">
           {receipts.length === 0 ? (
             <div className="text-center py-10">
-              <Search className="w-8 h-8 text-white/10 mx-auto mb-3" />
-              <p className="font-display text-xs text-white/20 tracking-widest">NO SEARCH RECEIPTS YET</p>
-              <p className="text-white/25 text-sm mt-2">Perform a search to see your payment history</p>
+              <Search className="w-8 h-8 text-white/20 mx-auto mb-3" />
+              <p className="font-display text-xs text-white/45 tracking-widest">NO SEARCH RECEIPTS YET</p>
+              <p className="text-white/55 text-sm mt-2">Perform a search to see your payment history</p>
             </div>
           ) : (
             receipts.map((receipt, i) => (
@@ -300,17 +301,17 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
                       href={explorerTxUrl(receipt.txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-white/25 hover:text-neon-cyan transition-colors flex items-center gap-1"
+                      className="font-mono text-white/50 hover:text-neon-cyan transition-colors flex items-center gap-1"
                       style={{ fontSize: '10px' }}
                     >
                       {truncateHash(receipt.txHash, 8)} <ExternalLink className="w-2.5 h-2.5" />
                     </a>
-                    <span className="text-white/20" style={{ fontSize: '10px' }}>{formatTimeAgo(receipt.timestamp)}</span>
+                    <span className="text-white/50" style={{ fontSize: '10px' }}>{formatTimeAgo(receipt.timestamp)}</span>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-display text-sm text-neon-amber/80">{receipt.amount} USDC</p>
-                  <p className="font-display text-white/15 mt-0.5 uppercase" style={{ fontSize: '9px' }}>
+                  <p className="font-display text-white/40 mt-0.5 uppercase" style={{ fontSize: '9px' }}>
                     {receipt.network.split(':')[1]}
                   </p>
                 </div>
@@ -336,9 +337,9 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
           >
             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
             <div>
-              <p className="font-display text-white/25 tracking-wider uppercase" style={{ fontSize: '9px' }}>{label}</p>
+              <p className="font-display text-white/50 tracking-wider uppercase" style={{ fontSize: '9px' }}>{label}</p>
               <p className="font-display text-sm text-white mt-0.5">{value}</p>
-              <p className="font-mono text-white/30 mt-0.5" style={{ fontSize: '10px' }}>{sub}</p>
+              <p className="font-mono text-white/55 mt-0.5" style={{ fontSize: '10px' }}>{sub}</p>
             </div>
           </motion.div>
         ))}

@@ -115,7 +115,7 @@ export function SearchBar({
                 : 'Search anything — pay per query, not per month...'
             }
             disabled={isSearching || isWrongNetwork}
-            className="flex-1 min-w-0 bg-transparent text-white placeholder:text-white/20 text-sm outline-none disabled:opacity-50"
+            className="flex-1 min-w-0 bg-transparent text-white            placeholder:text-white/40 text-sm outline-none disabled:opacity-50"
             style={{ caretColor: isWrongNetwork ? '#ef4444' : '#00f5ff' }}
           />
 
@@ -130,10 +130,8 @@ export function SearchBar({
               borderColor:
                 isSearching || isWrongNetwork
                   ? 'rgba(255,255,255,0.1)'
-                  : 'rgba(0,245,255,0.4)',
-              color:
-                isSearching || isWrongNetwork
-                  ? 'rgba(255,255,255,0.3)'
+                  : 'rgba(0,245,255,0.4)',              color: isSearching || isWrongNetwork
+                  ? 'rgba(255,255,255,0.5)'
                   : '#00f5ff',
             }}
             whileTap={{ scale: 0.96 }}
@@ -160,7 +158,7 @@ export function SearchBar({
         aria-label="Date range filters"
       >
         <span className="inline-flex items-center gap-1 font-display text-xs text-white/30 tracking-wider uppercase mr-1">
-          <Calendar className="w-3 h-3 text-neon-cyan/60" /> Freshness:
+          <Calendar className="w-3 h-3 text-neon-cyan/70" /> Freshness:
         </span>
         {FRESHNESS_OPTIONS.map((opt) => {
           const isSelected = freshness === opt.value
@@ -177,7 +175,7 @@ export function SearchBar({
                 borderColor: isSelected
                   ? 'rgba(0,245,255,0.5)'
                   : 'rgba(255,255,255,0.08)',
-                color: isSelected ? '#00f5ff' : 'rgba(255,255,255,0.4)',
+                color: isSelected ? '#00f5ff' : 'rgba(255,255,255,0.55)',
               }}
               aria-pressed={isSelected}
             >
@@ -189,14 +187,14 @@ export function SearchBar({
 
       {/* Meta row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-2 px-1">
-        <p className="font-display text-xs text-white/20">
+        <p className="font-display text-xs text-white/45">
           {walletConnected
             ? `Balance: ${usdcBalance} USDC · ~${Math.floor(
                 parseFloat(usdcBalance) / parseFloat(AMOUNT_USDC)
               ).toLocaleString()} queries left`
             : 'Connect Freighter wallet to search'}
         </p>
-        <p className="font-display text-xs text-white/20 uppercase tracking-widest">
+        <p className="font-display text-xs text-white/45 uppercase tracking-widest">
           Serper.dev · x402 · Stellar {IS_MAINNET ? 'Mainnet' : 'Testnet'}
         </p>
       </div>
