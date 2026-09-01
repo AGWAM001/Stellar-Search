@@ -32,6 +32,11 @@ export interface WalletState {
   network: string
   xlmBalance: string
   usdcBalance: string
+  /** True once the account has a USDC trustline (a balance line exists for
+   *  it), independent of whether that balance is currently 0. Distinct
+   *  from `usdcBalance === '0'`, which is also true for an account with a
+   *  trustline but nothing funded into it yet (#342). */
+  hasUsdcTrustline: boolean
   loading: boolean
   error: string | null
 }
