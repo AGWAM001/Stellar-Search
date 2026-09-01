@@ -420,6 +420,14 @@ npm run test:coverage     # run with coverage + thresholds (CI gate)
 
 Reports are generated to `coverage/` (`text`, `json`, `html`, `lcov`). CI uploads the `coverage/` artifact and fails if thresholds are not met.
 
+### Parameter validation on paid endpoints (#188)
+
+All paid routes (`GET /search`, `GET /images`, `GET /news`, `POST /search/batch`, `POST /jobs`, and `GET /api/search`) share one validation contract via `src/lib/paramValidation.ts`:
+
+- **`count`** — omitted → route default (`5` search/batch/jobs, `10` images/news); must be a single integer within the route bounds (`1..20` search/news/batch/jobs, `1..10` images). `0`, negatives, values above the max, non-integers (`abc`, `1.5`, `1e3`), and repeated params (`?count=1&count=2`) are **rejected early with 400**. Valid values are forwarded to Serper as `num`.
+- **`freshness`** — must be one of `pd` (past day), `pw` (past week), `pm` (past month); omitted is allowed. Anything else (or repeated params) is **rejected early with 400**. Valid values map to Serper `tbs`: `qdr:d`, `qdr:w`, `qdr:m`. (`/images` does not support freshness.)
+- **Early rejection** — validation runs **before** payment verification and the Serper call, so invalid input never invokes the downstream payment adapter (`consumePaymentPayload`) or the Serper adapter. Proven by the shared matrix in `server/parameterMatrix.test.ts` (all Express paid routes) and `api/search.test.ts` (Vercel `/api/search`): every reject case asserts HTTP 400 (not 402 — payment was never consulted), no `fetch`, and no payment-payload consumption, even when a payment header is present.
+
 ### Current thresholds (ratchet upward)
 
 Global thresholds are deliberately modest initially and ratchet upward as payment/wallet/API/MCP/UI tests land:
@@ -431,6 +439,7 @@ Global thresholds are deliberately modest initially and ratchet upward as paymen
 | `src/lib/stellar.ts` | 85% | 75% | 85% | 85% |
 | `src/lib/paymentIntegrity.ts` | 90% | 85% | 95% | 90% |
 | `src/lib/serperNormalizer.ts` | 95% | 90% | 100% | 95% |
+| `src/lib/paramValidation.ts` | 95% | 90% | 100% | 95% |
 | `server/corsConfig.ts` | 90% | 85% | 95% | 90% |
 | `src/components/search/SearchBar.tsx` | 80% | 80% | 90% | 80% |
 | `src/components/search/SpellingCorrectionBanner.tsx` | 85% | 90% | 70% | 85% |
