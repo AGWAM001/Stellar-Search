@@ -407,6 +407,16 @@ When upstream search providers auto-correct or suggest queries ("Did you mean?")
 - **Did You Mean Suggestions**: Displays the suggested correction alongside "Search Suggestion" (which invokes the explicit Freighter confirmation flow) and a "Dismiss" action that closes the suggestion with **0 additional cost and no second payment**.
 - No automatic or silent payments are ever executed.
 
+### Search focus management (#150)
+
+After an asynchronous search settles, keyboard and screen-reader focus moves to a **results heading** on success and to the **error alert** (`role="alert"`) on failure — so assistive tech users land directly on the outcome instead of the now-disabled search input.
+
+- Focus moves **only** on the async completion transition (`searching` → `complete` / `error`), never while typing, signing, or during manual navigation.
+- The results heading (`h2`, `tabIndex=-1`) is focusable and is rendered even for a successful search with zero results, so focus always has a destination.
+- The error alert is focusable (`tabIndex=-1`) with `role="alert"` so failures are announced and reachable.
+
+See `src/pages/SearchPage.tsx` (error focus) and `src/components/search/SearchResults.tsx` (results heading focus), covered by `src/pages/SearchPage.test.tsx`.
+
 ---
 
 ## Testing & Coverage
